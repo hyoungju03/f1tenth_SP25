@@ -22,12 +22,16 @@ import numpy as np
 from numpy import linalg as la
 import scipy.signal as signal
 
+from cv_bridge import CvBridge
+
 # ROS Headers
 import rospy
 
 # GEM Sensor Headers
 from std_msgs.msg import String, Bool, Float32, Float64, Float64MultiArray
 from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
+
+from lane_detection import lanenet_detector
 
 
 class PurePursuit(object):
@@ -51,7 +55,9 @@ class PurePursuit(object):
         self.x   = 0.0
         self.y   = 0.0
         self.yaw = 0.0
-        
+
+        self.lane_detector = lanenet_detector()
+
         # read waypoints into the system 
         self.goal = 0            
         self.read_waypoints() 
