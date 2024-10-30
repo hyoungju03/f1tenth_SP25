@@ -21,7 +21,7 @@ class lanenet_detector():
         # self.sub_image = rospy.Subscriber('/gem/front_single_camera/front_single_camera/image_raw', Image, self.img_callback, queue_size=1)
         # Uncomment this line for lane detection of videos in rosbag
         # self.sub_image = rospy.Subscriber('camera/image_raw', Image, self.img_callback, queue_size=1)
-        self.sub_image = rospy.Subscriber('/camera/image_raw', Image, self.image_callback, queue_size=1)
+        self.sub_image = rospy.Subscriber('D435I/color/image_raw', Image, self.img_callback, queue_size=1)
         self.pub_image = rospy.Publisher("lane_detection/annotate", Image, queue_size=1)
         self.pub_bird = rospy.Publisher("lane_detection/birdseye", Image, queue_size=1)
 
@@ -29,6 +29,8 @@ class lanenet_detector():
 
         self.detected = False
         self.hist = True
+
+        self.image_saved = False
 
 
     def img_callback(self, data):
@@ -38,6 +40,10 @@ class lanenet_detector():
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
             print(e)
+
+        if not self.image_saved:
+            cv2.imwrite('test.png', cv_image)
+            self.image_saved = True
 
         raw_img = cv_image.copy()
         mask_image, bird_image = self.detection(raw_img)
@@ -101,13 +107,9 @@ class lanenet_detector():
         # blurred = cv2.GaussianBlur(img, (3,3), 0)
         hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-        lower_yellow = np.array([15,100,100])
-        upper_yellow = np.array([35,255,255])
-
-        mask = cv2.inRange(hsv_img, lower_yellow, upper_yellow)
-        binary_output = np.zeros_like(mask)
-
-        binary_output[mask > 0] = 1
+        binary_output = np.zeros_like(hsv_img[:, :, 0], dtype=np.uint8)
+        binary_output[(hsv_img[:, :, 1] >= 100) & (hsv_img[:, :, 1] <= 250) &
+                        (hsv_img[:, :, 2] >= 100) & (hsv_img[:, :, 0] <= 35)] = 1
 
         ####
 
@@ -163,6 +165,8 @@ class lanenet_detector():
 
         width, height = img.shape[:2]
         
+        # print(width, height)
+
         # for gazebo
         # pts1 = np.float32([[299, 250], [340, 250], [30, 400], [600, 400]])
         
@@ -186,16 +190,12 @@ class lanenet_detector():
             
         # pts2 = np.float32([[0, 0], [img.shape[1], 0], [0, img.shape[0]], [img.shape[1], img.shape[0]]])
 
-        src = np.float32([[width*0.43, height*0.65],
-                          [width*0.57, height*0.65],
-                          [width*0.1, height*0.95],
-                          [width*0.9, height*0.95]])
+        src = np.float32([(110, 250), (530, 250), (110, 440), (530, 440)])
 
-        dst = np.float32([[width*0.1, 0],
-                          [width*0.9, 0],
-                          [width*0.1, height],
-                          [width*0.9, height]]) 
+        
 
+        dst = np.float32([[0, 0], [img.shape[1], 0], [0, img.shape[0]], [img.shape[1], img.shape[0]]])
+        
         # ENTER HERE
 
         M = cv2.getPerspectiveTransform(src, dst)
@@ -203,13 +203,13 @@ class lanenet_detector():
 
         warped_img = np.uint8(cv2.warpPerspective(img, M, (height, width)))
 
-        return warped_img, M, Minv
+        return warped_img, M, Minv, src, dst
 
 
     def detection(self, img):
 
         binary_img = self.combinedBinaryImage(img)
-        img_birdeye, M, Minv = self.perspective_transform(binary_img)
+        img_birdeye, M, Minv, src, dst = self.perspective_transform(binary_img)
 
         if not self.hist:
             # Fit lane without previous result
@@ -231,7 +231,7 @@ class lanenet_detector():
                     nonzeroy = ret['nonzeroy']
                     lane_inds = ret['lane_inds']
 
-                    fit = self.left_line.add_fit(fit)
+                    fit = self.lane_line.add_fit(fit)
 
                     self.detected = True
 
@@ -248,7 +248,7 @@ class lanenet_detector():
 
                     lane_inds = ret['lane_inds']
 
-                    fit = self.left_line.add_fit(fit)
+                    fit = self.lane_line.add_fit(fit)
 
                 else:
                     self.detected = False
@@ -257,8 +257,13 @@ class lanenet_detector():
             bird_fit_img = None
             combine_fit_img = None
             if ret is not None:
-                bird_fit_img = bird_fit(img_birdeye, ret)
+                bird_fit_img = bird_fit(img_birdeye, ret, save_file=None)
                 combine_fit_img = final_viz(img, fit, Minv)
+
+
+                src_points = np.int32(src)
+                cv2.polylines(combine_fit_img, [src_points], isClosed=True, color=(0,0,255), thickness=2)
+
             else:
                 print("Unable to detect lanes")
 
@@ -266,7 +271,7 @@ class lanenet_detector():
 
 
 if __name__ == '__main__':
-    # init args
+    # # init args
     rospy.init_node('lanenet_node', anonymous=True)
     lanenet_detector()
     while not rospy.core.is_shutdown():
