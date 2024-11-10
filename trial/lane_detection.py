@@ -4,7 +4,7 @@ import numpy as np
 from line_fit import line_fit, tune_fit, bird_fit, final_viz
 from Line import Line
 
-# from skimage import morphology
+from skimage import morphology
 
 
 
@@ -27,7 +27,23 @@ def get_pixel_color(event, x, y, flags, param):
         # Print the HSL values to the terminal
         print(f"Pixel at ({x}, {y}) - HLS: ({h}, {l}, {s})")
 
+def gradient_thresh(img, thresh_min=25, thresh_max=100):
 
+
+    gs_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gs_image, (5,5), 0)
+    
+    sobel_x = cv2.Sobel(gs_image, cv2.CV_16S, 1, 0, ksize=3)
+    sobel_y = cv2.Sobel(gs_image, cv2.CV_16S, 0, 1, ksize=3)
+    
+    abs_sobel_x = cv2.convertScaleAbs(sobel_x)
+    abs_sobel_y = cv2.convertScaleAbs(sobel_y)
+    
+    sobel_combined = cv2.addWeighted(abs_sobel_x, 0.5, abs_sobel_y, 0.5, 0)
+
+    binary_output = cv2.inRange(sobel_combined, thresh_min, thresh_max).astype(np.uint8)
+
+    return binary_output
 
 def create_yellow_mask(image):
     # Convert the BGR image to HLS (Hue, Lightness, Saturation)
@@ -37,25 +53,47 @@ def create_yellow_mask(image):
     l = hls_image[:,:,1]
     s = hls_image[:,:,2]
 
-    hue_lower = 28
+    hue_lower = 20
     hue_upper = 35
     
     lgt_lower = 100
     lgt_upper = 255
 
-    sat_lower = 100
+    sat_lower = 70
     sat_upper = 255
 
+    lgt_lower_2 = 130
+    lgt_upper_2 = 160
 
+    sat_lower_2 = 40
+    sat_upper_2 = 60
    
-    lower_yellow = np.array([15, lgt_lower, sat_lower])  # Lower bound of yellow in HSL
-    upper_yellow = np.array([35, lgt_upper, sat_upper])  # Upper bound of yellow in HSL
+    lower_yellow = np.array([hue_lower, lgt_lower, sat_lower])  # Lower bound of yellow in HSL
+    upper_yellow = np.array([hue_upper, lgt_upper, sat_upper])  # Upper bound of yellow in HSL
+
+    lower_yellow_2 = np.array([hue_lower, lgt_lower_2, sat_lower_2])  # Lower bound of yellow in HSL
+    upper_yellow_2 = np.array([hue_upper, lgt_upper_2, sat_upper_2])  # Upper bound of yellow in HSL
 
     # Create a mask based on the defined color range
-    yellow_mask = cv2.inRange(hls_image, lower_yellow, upper_yellow)
+    yellow_mask_1 = cv2.inRange(hls_image, lower_yellow, upper_yellow)
+    yellow_mask_2 = cv2.inRange(hls_image, lower_yellow_2, upper_yellow_2)
 
-    return yellow_mask
+    return cv2.bitwise_or(yellow_mask_1, yellow_mask_2)
 
+
+def combinedBinaryImage(img):
+
+    sobel_output = gradient_thresh(img)
+    color_output = create_yellow_mask(img)
+
+    ####
+    combined_binary = cv2.bitwise_or(sobel_output, color_output)
+
+    # Remove noise from binary image
+    binaryImage = morphology.remove_small_objects(combined_binary.astype('bool'),min_size=50,connectivity=2)
+    binaryImage = (binaryImage * 255).astype(np.uint8)
+
+    return binaryImage
 
 
 def perspective_transform(img, verbose=False):
@@ -75,7 +113,7 @@ def perspective_transform(img, verbose=False):
 
 def detection(img):
 
-    binary_img = create_yellow_mask(img)
+    binary_img = combinedBinaryImage(img)
     img_birdeye, M, Minv, src, dst = perspective_transform(binary_img)
 
     cv2.imshow('birds_eye', img_birdeye)
@@ -135,7 +173,6 @@ def detection(img):
             bird_fit_img = bird_fit(img_birdeye, ret, save_file=None)
             combine_fit_img = final_viz(img, fit, Minv)
 
-
             src_points = np.int32(src)
             cv2.polylines(combine_fit_img, [src_points], isClosed=True, color=(0,0,255), thickness=2)
 
@@ -151,7 +188,6 @@ def main():
     
     cap = cv2.VideoCapture(path)
 
-
     if not cap.isOpened():
         print("Video not opened")
         return
@@ -159,26 +195,17 @@ def main():
     paused = False
     while cap.isOpened():
 
-        
-
         if not paused:
             ret, frame = cap.read()
             frame = cv2.GaussianBlur(frame, (5, 5), 0)
-
+            
             if not ret:
                 break  # Exit if we reach the end of the video
 
 
-        # frame = cv2.GaussianBlur(frame, (5, 5), 0)
+        cv2.imshow('original', frame)
 
-
-        mask = create_yellow_mask(frame)
-
-        cv2.imshow('Frame', frame)
-        
-
-        cv2.setMouseCallback('Frame', get_pixel_color, param=frame)
-        # cv2.setMouseCallback('Frame', get_pixel_color, param=mask)
+        cv2.setMouseCallback('original', get_pixel_color, param=frame)
 
         combine_fit_img, bird_fit_img = detection(frame)
 

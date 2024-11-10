@@ -14,7 +14,7 @@ from skimage import morphology
 
 class lanenet_detector():
     def __init__(self):
-
+        
         self.bridge = CvBridge()
         # NOTE
         # Uncomment this line for lane detection of GEM car in Gazebo
