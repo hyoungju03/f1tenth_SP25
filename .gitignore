@@ -1,0 +1,46 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dSYM
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+
+# ROS workspace (if using catkin)
+devel/
+build/
+install/
+
+# Logs and temp files
+*.log
+*.bak
+*.swp
+*.swo
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.iml
+
+# MacOS-specific
+.DS_Store
+
+# Python distributions
+*.egg
+*.egg-info
+dist/
+build/
+*.tar.gz
+*.whl
+
+# CMake and ROS build artifacts
+CMakeFiles/
+CMakeCache.txt
+Makefile
+*.cmake
