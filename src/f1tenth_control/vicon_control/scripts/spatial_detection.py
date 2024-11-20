@@ -12,8 +12,12 @@ from std_msgs.msg import Header
 from cv_bridge import CvBridge, CvBridgeError
 from std_msgs.msg import Float32
 from skimage import morphology
+
+from pid_controller import PIDController
+from waypoint_generation import WaypointGenerator
+
 from ultralytics import YOLO
-import torch
+# import torch
 
 class spatial_detector():
     def __init__(self):
@@ -34,9 +38,32 @@ class spatial_detector():
         self.detected = False
         self.hist = True
         
-        # Load YOLO model for sign detection
-        self.yolo_model = YOLO('best.pt').to(torch.device('cuda'))
         self.skip_frame = 0
+
+        self.Kp = 0.0
+        self.Ki = 0.0
+        self.Kd = 0.0
+        self.controller = PIDController(self.Kp, self.Ki, self.Kd)
+
+        self.waypoints = []
+        self.waypoint_gen = WaypointGenerator()
+
+        self.coeff = []
+
+        self.lookahead_row = 400
+        self.lookahead_col = 0
+        self.center_col = 319
+
+        self.error = 0.0
+
+        # Load YOLO model for sign detection
+        self.yolo_model = YOLO('best.pt')
+
+
+    def calculate_error(self):
+
+        self.lookahead_col = self.coeff[2] + self.coeff[1] * self.lookahead_row + self.coeff[0] * self.lookahead_row**2
+        self.error = self.center_col - self.lookahead_col
 
     def img_callback(self, data):
       
@@ -191,18 +218,34 @@ class spatial_detector():
                 combine_fit_img = final_viz(img, fit, Minv)
 
 
-                if self.skip_frame > 5:
-                    inference = self.yolo_model('sign_raw_image.png', verbose=False)[0].boxes
+                # if self.skip_frame > 5:
+                #     inference = self.yolo_model('sign_raw_image.png', verbose=False)[0].boxes
 
-                    for box in inference:
-                        if box.cls[0] == 1:  # Assuming class ID 1 is for the target sign
-                            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
-                            cv2.rectangle(combine_fit_img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
+                #     for box in inference:
+                #         if box.cls[0] == 1:  # Assuming class ID 1 is for the target sign
+                #             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+                #             cv2.rectangle(combine_fit_img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
 
-                    self.skip_frame = 0
+                #     self.skip_frame = 0
 
-                # src_points = np.int32(src)
-                # cv2.polylines(combine_fit_img, [src_points], isClosed=True, color=(0,0,255), thickness=2)
+                src_points = np.int32(src)
+                cv2.polylines(combine_fit_img, [src_points], isClosed=True, color=(0,0,255), thickness=2)
+
+                # calculate error and draw error on screen
+                self.coeff = ret['fit']
+                self.calculate_error()
+                cv2.circle(combine_fit_img, (int(self.lookahead_col), self.lookahead_row), 5, (0,0,255), -1)
+                
+                # draw center
+                cv2.circle(combine_fit_img, (self.center_col, self.lookahead_row), 5, (255,0,127), -1)
+
+                self.waypoints = self.waypoint_gen.compute_waypoints(self.coeff)
+                # for waypoint in self.waypoints:
+                #     cv2.circle(bird_fit_img, waypoint, 5, (65,103,274), -1)
+
+                newwarp = self.waypoint_gen.waypoint_viz(combine_fit_img, self.coeff, Minv)
+
+                combine_fit_img = cv2.addWeighted(combine_fit_img, 1, newwarp, 1, 0)
 
             else:
                 print("Unable to detect lanes")

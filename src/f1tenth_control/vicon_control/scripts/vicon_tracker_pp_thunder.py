@@ -32,6 +32,7 @@ from std_msgs.msg import String, Bool, Float32, Float64, Float64MultiArray
 from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
 
 from lane_detection import lanenet_detector
+from pid_controller import PIDController
 
 
 class PurePursuit(object):
@@ -170,7 +171,115 @@ def pure_pursuit():
         pass
 
 
+class PIDControl(object):
+  
+   def __init__(self):
+      
+       self.rate = rospy.Rate(30)       
+      
+       self.ctrl_pub  = rospy.Publisher("/vesc/low_level/ackermann_cmd_mux/input/navigation",
+                                        AckermannDriveStamped, queue_size=1)
+       self.drive_msg = AckermannDriveStamped()
+       self.drive_msg.header.frame_id = "f1tenth_control"
+       self.drive_msg.drive.speed     = 1.2  # m/s, reference speed
+
+
+       self.vicon_sub = rospy.Subscriber('/car_state', Float64MultiArray, self.carstate_callback)
+       self.x   = 0.0
+       self.y   = 0.0
+       self.yaw = 0.0
+
+
+       self.offset = 0.015  # meters
+       self.wheelbase = 0.325  # meters
+
+
+       self.lane_detector = lanenet_detector()
+
+
+       # PID controller gains (tune these values)
+       self.Kp = 1.0
+       self.Ki = 0.0
+       self.Kd = 0.0
+       self.controller = PIDController(self.Kp, self.Ki, self.Kd, output_limits=(-0.3, 0.3))
+
+       # Camera parameters (adjust these based on your camera)
+       self.image_width = 640  # pixels
+       self.camera_fov_deg = 60  # degrees
+       self.radians_per_pixel = (self.camera_fov_deg / self.image_width) * (np.pi / 180)  # radians per pixel
+
+
+   def carstate_callback(self, carstate_msg):
+       self.x   = carstate_msg.data[0]  # meters
+       self.y   = carstate_msg.data[1]  # meters
+       self.yaw = carstate_msg.data[3]  # degrees
+
+
+   def get_f1tenth_state(self):
+       # Convert heading to yaw in radians
+       curr_yaw = np.radians(self.yaw)
+
+
+       # Reference point is located at the center of rear axle
+       curr_x = self.x - self.offset * np.cos(curr_yaw)
+       curr_y = self.y - self.offset * np.sin(curr_yaw)
+
+
+       return curr_x, curr_y, curr_yaw
+
+
+   def start_pid(self):
+      
+       while not rospy.is_shutdown():
+
+
+           curr_x, curr_y, curr_yaw = self.get_f1tenth_state()
+
+
+           # Get the steering error from the lane detector
+           lanenet_steering_error = self.lane_detector.steering_error
+
+
+           # Convert steering error from pixels to radians
+           steering_error_radians = lanenet_steering_error * self.radians_per_pixel
+
+
+           # Compute the control action using the PID controller
+           current_time = rospy.get_time()
+           steering_correction = self.controller.compute(steering_error_radians, current_time)
+
+
+           # Set the steering angle
+           f_delta = np.clip(steering_correction, -0.3, 0.3)
+
+           # Debug statements
+           print(f"Steering error (pixels): {lanenet_steering_error}")
+           print(f"Steering error (radians): {steering_error_radians}")
+           print(f"Steering correction (radians): {steering_correction}")
+           print(f"Applied steering angle (radians): {f_delta}")
+           print("\n")
+
+
+           # Publish the steering command
+           self.drive_msg.header.stamp = rospy.get_rostime()
+           self.drive_msg.drive.steering_angle = f_delta
+           self.ctrl_pub.publish(self.drive_msg)
+      
+           self.rate.sleep()
+
+
+def pid_controller():
+   rospy.init_node('vicon_pid_node', anonymous=True)
+   controller = PIDControl()
+
+
+   try:
+       controller.start_pid()
+   except rospy.ROSInterruptException:
+       pass
+
+
 if __name__ == '__main__':
-    pure_pursuit()
+    pid_controller()
 
 

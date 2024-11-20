@@ -3,6 +3,7 @@ import math
 import numpy as np
 import cv2
 import rospy
+import torch
 
 from line_fit import line_fit, tune_fit, bird_fit, final_viz
 from Line import Line
@@ -12,15 +13,16 @@ from cv_bridge import CvBridge, CvBridgeError
 from std_msgs.msg import Float32
 from skimage import morphology
 
+# from pid_controller import PIDController
+# from waypoint_generation import WaypointGenerator
+
+from ultralytics import YOLO
+
 class lanenet_detector():
     def __init__(self):
         
         self.bridge = CvBridge()
-        # NOTE
-        # Uncomment this line for lane detection of GEM car in Gazebo
-        # self.sub_image = rospy.Subscriber('/gem/front_single_camera/front_single_camera/image_raw', Image, self.img_callback, queue_size=1)
-        # Uncomment this line for lane detection of videos in rosbag
-        # self.sub_image = rospy.Subscriber('camera/image_raw', Image, self.img_callback, queue_size=1)
+ 
         self.sub_image = rospy.Subscriber('D435I/color/image_raw', Image, self.img_callback, queue_size=1)
         self.pub_image = rospy.Publisher("lane_detection/annotate", Image, queue_size=1)
         self.pub_bird = rospy.Publisher("lane_detection/birdseye", Image, queue_size=1)
@@ -29,6 +31,27 @@ class lanenet_detector():
 
         self.detected = False
         self.hist = True
+        
+        # self.Kp = 0.0
+        # self.Ki = 0.0
+        # self.Kd = 0.0
+        # self.controller = PIDController(self.Kp, self.Ki, self.Kd)
+
+        # self.waypoints = []
+        # self.waypoint_gen = WaypointGenerator()
+
+        self.coeff = []
+
+        self.lookahead_row = 400
+        self.lookahead_col = 0
+
+        self.center_col = 319
+
+        self.steering_error = 0.0
+
+        self.skip_frame = 0
+        # Load YOLO model for sign detection
+        self.yolo_model = YOLO('best.pt')
 
 
     def img_callback(self, data):
@@ -40,10 +63,13 @@ class lanenet_detector():
             print(e)
 
         raw_img = cv_image.copy()
+
+        cv2.imwrite('sign_raw_image.png', raw_img)
+
         mask_image, bird_image = self.detection(raw_img)
 
-        cv2.imwrite('raw_image.png', raw_img)
-        cv2.imwrite('bird.png', bird_image)
+        # cv2.imwrite('raw_image.png', raw_img)
+        # cv2.imwrite('bird.png', bird_image)
 
         if mask_image is not None and bird_image is not None:
             # Convert an OpenCV image into a ROS image message
@@ -56,18 +82,6 @@ class lanenet_detector():
 
 
     def gradient_thresh(self, img, thresh_min=25, thresh_max=100):
-        """
-        Apply sobel edge detection on input image in x, y direction
-        """
-        #1. Convert the image to gray scale
-        #2. Gaussian blur the image
-        #3. Use cv2.Sobel() to find derievatives for both X and Y Axis
-        #4. Use cv2.addWeighted() to combine the results
-        #5. Convert each pixel to unint8, then apply threshold to get binary image
-
-        ## TODO
-
-        ## USED BGR AND ASSUMED IMAGE IS OF TYPE NUMPY ARRAY ##
 
         gs_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gs_image, (5,5), 0)
@@ -82,98 +96,70 @@ class lanenet_detector():
 
         binary_output = cv2.inRange(sobel_combined, thresh_min, thresh_max).astype(np.uint8)
 
-        ####
-
         return binary_output
 
 
-    def color_thresh(self, img):
-        """
-        Convert RGB to HSL and threshold to binary image using S channel
-        """
-        #1. Convert the image from RGB to HSL
-        #2. Apply threshold on S channel to get binary image
-        #Hint: threshold on H to remove green grass
-        ## TODO
-
-        ## USED BGR AND ASSUMED IMAGE IS OF TYPE NUMPY ARRAY ##
+    def color_thresh(self, img, thresh=(100, 255)):
 
         hls_image = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
-        hue_lower, hue_upper = 20, 35
-        lgt_lower, lgt_upper = 100, 255
-        sat_lower, sat_upper = 70, 255
-        
-        lower_yellow = np.array([hue_lower, lgt_lower, sat_lower])
-        upper_yellow = np.array([hue_upper, lgt_upper, sat_upper])
-        
-        binary_output = cv2.inRange(hls_image, lower_yellow, upper_yellow)
 
-        ####
-
-        return binary_output
+        ranges = [
+            (20, 35, 100, 255, 70, 255),
+            (20, 35, 130, 160, 40, 60)
+        ]
+        
+        # Initialize the mask as an empty mask (same size as input)
+        yellow_mask = np.zeros(hls_image.shape[:2], dtype=np.uint8)
+        
+        # Iterate over the ranges and combine masks
+        for h_lower, h_upper, l_lower, l_upper, s_lower, s_upper in ranges:
+            lower_yellow = np.array([h_lower, l_lower, s_lower])
+            upper_yellow = np.array([h_upper, l_upper, s_upper])
+            
+            # Create a mask for this range and combine with the existing mask
+            yellow_mask = cv2.bitwise_or(yellow_mask, cv2.inRange(hls_image, lower_yellow, upper_yellow))
+        
+        return yellow_mask
 
 
     def combinedBinaryImage(self, img):
-        """
-        Get combined binary image from color filter and sobel filter
-        """
-        #1. Apply sobel filter and color filter on input image
-        #2. Combine the outputs
-        ## Here you can use as many methods as you want.
 
-        ## TODO
         sobel_output = self.gradient_thresh(img)
         color_output = self.color_thresh(img)
 
-        ####
-
         combined_binary = cv2.bitwise_or(sobel_output, color_output)
 
-        # Remove noise from binary image
         binaryImage = morphology.remove_small_objects(combined_binary.astype('bool'),min_size=50,connectivity=2)
-
         binaryImage = (binaryImage * 255).astype(np.uint8)
-
-        # cv2.imshow("hello", binaryImage)
 
         return binaryImage
 
 
     def perspective_transform(self, img, verbose=False):
-        """
-        Get bird's eye view from input image
-        """
-        #1. Visually determine 4 source points and 4 destination points
-        #2. Get M, the transform matrix, and Minv, the inverse using cv2.getPerspectiveTransform()
-        #3. Generate warped image in bird view using cv2.warpPerspective()
 
-        ## TODO
-
-        ####
-
-        width, height = img.shape[:2]
-        
-        # print(width, height)
-
+        height, width = img.shape[:2]
+   
         src = np.float32([(70, 300), (50, height), (width-50, height), (width-70, 300)])
-
-        dst = np.float32([(0,0),(0,height),(width, height),(width, 0)])
-        
-        # ENTER HERE
+        dst = np.float32([[0, 0], [0, height], [width, height], [width, 0]])
 
         M = cv2.getPerspectiveTransform(src, dst)
         Minv = np.linalg.inv(M)
 
-        warped_img = np.uint8(cv2.warpPerspective(img, M, (height, width)))
+        warped_img = np.uint8(cv2.warpPerspective(img, M, (width, height)))
 
-        return warped_img, Minv, src
+        return warped_img, M, Minv, src, dst
+
+
+    def calculate_error(self):
+
+        self.lookahead_col = self.coeff[2] + self.coeff[1] * self.lookahead_row + self.coeff[0] * self.lookahead_row**2
+        self.steering_error = self.center_col - self.lookahead_col
 
 
     def detection(self, img):
 
         binary_img = self.combinedBinaryImage(img)
-
-        img_birdeye, Minv, src = self.perspective_transform(binary_img)
+        img_birdeye, M, Minv, src, dst = self.perspective_transform(binary_img)
 
         if not self.hist:
             # Fit lane without previous result
@@ -227,6 +213,32 @@ class lanenet_detector():
                 src_points = np.int32(src)
                 cv2.polylines(combine_fit_img, [src_points], isClosed=True, color=(0,0,255), thickness=2)
 
+                if self.skip_frame > 5:
+                    inference = self.yolo_model('sign_raw_image.png', verbose=False)[0].boxes
+
+                    for box in inference:
+                        if box.cls[0] == 1:  # Assuming class ID 1 is for the target sign
+                            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+                            cv2.rectangle(combine_fit_img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
+
+                    self.skip_frame = 0
+
+                # calculate error and draw error on screen
+                self.coeff = ret['fit']
+                self.calculate_error()
+                cv2.circle(combine_fit_img, (int(self.lookahead_col), self.lookahead_row), 5, (0,0,255), -1)
+                
+                # draw center
+                cv2.circle(combine_fit_img, (self.center_col, self.lookahead_row), 5, (255,0,127), -1)
+
+                # self.waypoints = self.waypoint_gen.compute_waypoints(self.coeff)
+                # for waypoint in self.waypoints:
+                #     cv2.circle(bird_fit_img, waypoint, 5, (65,103,274), -1)
+
+                # newwarp = self.waypoint_gen.waypoint_viz(combine_fit_img, self.coeff, Minv)
+
+                # combine_fit_img = cv2.addWeighted(combine_fit_img, 1, newwarp, 1, 0)
+
             else:
                 print("Unable to detect lanes")
 
@@ -239,32 +251,3 @@ if __name__ == '__main__':
     lanenet_detector()
     while not rospy.core.is_shutdown():
         rospy.rostime.wallsleep(0.5)
-
-    # detector = lanenet_detector()
-    
-    # # Path to the image file
-    # image_path = 'test.png'
-    
-    # # Load the image
-    # image = cv2.imread(image_path)
-    
-    # if image is None:
-    #     print(f"Error: Unable to load image at {image_path}")
-    # else:
-    #     # Show the original image
-    #     cv2.imshow('Original Image', image)
-
-    #     # Run the gradient_thresh method using the class object 'detector'
-    #     combined_image = detector.combinedBinaryImage(image)
-
-    #     output_image = detector.perspective_transform(combined_image)
-
-    #     output2 = detector.perspective_transform(image)
-
-    #     # Show the processed image
-    #     cv2.imshow('Processed Image', output_image[0])
-    #     cv2.imshow('Processed Image 2', output2[0])
-
-    #     # Wait until a key is pressed to close the image windows
-    #     cv2.waitKey(0)
-    #     cv2.destroyAllWindows()
