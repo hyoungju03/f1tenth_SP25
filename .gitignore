@@ -1,5 +1,5 @@
 # Python bytecode
-__pycache__/
+*/__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -46,3 +46,4 @@ Makefile
 *.cmake
 
 **/bagfiles/**
+.catkin_workspace
