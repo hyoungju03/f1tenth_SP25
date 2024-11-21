@@ -21,7 +21,7 @@ import math
 import numpy as np
 from numpy import linalg as la
 import scipy.signal as signal
-
+import time
 from cv_bridge import CvBridge
 
 # ROS Headers
@@ -175,8 +175,10 @@ class PIDControl(object):
   
    def __init__(self):
       
+       
        self.rate = rospy.Rate(30)       
-      
+       self.stop_sign = False
+       self.stop_sign_sub = rospy.Subscriber("stop sign detected",Bool,self.stop_sign_callback)
        self.ctrl_pub  = rospy.Publisher("/vesc/low_level/ackermann_cmd_mux/input/navigation",
                                         AckermannDriveStamped, queue_size=1)
        self.drive_msg = AckermannDriveStamped()
@@ -188,7 +190,8 @@ class PIDControl(object):
        self.x   = 0.0
        self.y   = 0.0
        self.yaw = 0.0
-
+       self.start_time = None
+       self.stop_duration=5
 
        self.offset = 0.015  # meters
        self.wheelbase = 0.325  # meters
@@ -208,6 +211,11 @@ class PIDControl(object):
        self.camera_fov_deg = 60  # degrees
        self.radians_per_pixel = (self.camera_fov_deg / self.image_width) * (np.pi / 180)  # radians per pixel
 
+   def stop_sign_callback(self,msg):
+       if msg.data:
+        if not self.stop_sign:
+            self.stop_sign = True
+            self.start_time=time.time()
 
    def carstate_callback(self, carstate_msg):
        self.x   = carstate_msg.data[0]  # meters
@@ -231,8 +239,16 @@ class PIDControl(object):
    def start_pid(self):
       
        while not rospy.is_shutdown():
-
-
+           current_time = time.time()
+           if self.stop_sign:
+               elapsed_time = current_time - self.start_time
+               if elapsed_time < self.stop_duration:
+                   self.drive_msg.drive.speed = 0.0
+               else:
+                   self.stop_sign = False
+                   self.drive_msg.drive.speed = 1.2
+           else:
+               self.drive_msg.drive.speed = 1.2
            curr_x, curr_y, curr_yaw = self.get_f1tenth_state()
 
 

@@ -8,7 +8,7 @@ import torch
 from line_fit import line_fit, tune_fit, bird_fit, final_viz
 from Line import Line
 from sensor_msgs.msg import Image
-from std_msgs.msg import Header
+from std_msgs.msg import Header, Bool
 from cv_bridge import CvBridge, CvBridgeError
 from std_msgs.msg import Float32
 from skimage import morphology
@@ -26,7 +26,7 @@ class lanenet_detector():
         self.sub_image = rospy.Subscriber('D435I/color/image_raw', Image, self.img_callback, queue_size=1)
         self.pub_image = rospy.Publisher("lane_detection/annotate", Image, queue_size=1)
         self.pub_bird = rospy.Publisher("lane_detection/birdseye", Image, queue_size=1)
-
+        self.stop_sign_pub=rospy.Publisher("stop sign detected", Bool, queue_size=1)
         self.lane_line = Line(n=5)
 
         self.detected = False
@@ -44,15 +44,12 @@ class lanenet_detector():
 
         self.lookahead_row = 400
         self.lookahead_col = 0
-
         self.center_col = 319
-
         self.steering_error = 0.0
 
         self.skip_frame = 0
         # Load YOLO model for sign detection
         self.yolo_model = YOLO('best.pt')
-
 
     def img_callback(self, data):
 
@@ -150,10 +147,21 @@ class lanenet_detector():
         return warped_img, M, Minv, src, dst
 
 
-    def calculate_error(self):
+    def calculate_error(self, M_inv):
 
         self.lookahead_col = self.coeff[2] + self.coeff[1] * self.lookahead_row + self.coeff[0] * self.lookahead_row**2
+
+        # vec = np.array([self.lookahead_col, self.lookahead_row, 1])
+
+        # # print(M_inv)
+
+
+        # self.lookahead_col, self.lookahead_row, t = M_inv @ vec
+        # # print(M_inv @ vec)
+
         self.steering_error = self.center_col - self.lookahead_col
+
+
 
 
     def detection(self, img):
@@ -208,28 +216,35 @@ class lanenet_detector():
             combine_fit_img = None
             if ret is not None:
                 bird_fit_img = bird_fit(img_birdeye, ret, save_file=None)
-                combine_fit_img = final_viz(img, fit, Minv)
-
+                
+                combine_fit_img, pts = final_viz(img, fit, Minv)
                 src_points = np.int32(src)
                 cv2.polylines(combine_fit_img, [src_points], isClosed=True, color=(0,0,255), thickness=2)
-
                 if self.skip_frame > 5:
                     inference = self.yolo_model('sign_raw_image.png', verbose=False)[0].boxes
-
+                    stop_sign = False
                     for box in inference:
                         if box.cls[0] == 1:  # Assuming class ID 1 is for the target sign
                             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
                             cv2.rectangle(combine_fit_img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
-
+                            area = np.abs((x2-x1)*(y2-y1))
+                            if area >= ... :
+                                stop_sign = True
+                    self.stop_sign_pub.publish(Bool(data=stop_sign))
                     self.skip_frame = 0
 
                 # calculate error and draw error on screen
                 self.coeff = ret['fit']
-                self.calculate_error()
-                cv2.circle(combine_fit_img, (int(self.lookahead_col), self.lookahead_row), 5, (0,0,255), -1)
+                self.calculate_error(Minv)
+
+                pts = pts[0]
+                pt = pts[np.isclose(pts[:,1],400.1)]
+                self.lookahead_col = int(pt[0][0])
+
+                cv2.circle(combine_fit_img, (self.lookahead_col, int(self.lookahead_row)), 5, (0,0,255), -1)
                 
                 # draw center
-                cv2.circle(combine_fit_img, (self.center_col, self.lookahead_row), 5, (255,0,127), -1)
+                cv2.circle(combine_fit_img, (self.center_col, int(self.lookahead_row)), 5, (255,0,127), -1)
 
                 # self.waypoints = self.waypoint_gen.compute_waypoints(self.coeff)
                 # for waypoint in self.waypoints:

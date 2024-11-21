@@ -175,6 +175,10 @@ def final_viz(undist, fit, m_inv):
     # Recast the x and y points into usable format for cv2.fillPoly()
     pts = np.array([np.transpose(np.vstack([fitx, ploty]))])
 
+    poly_points_birdseye = np.hstack([fitx.reshape(-1,1), ploty.reshape(-1,1)])
+    poly_points_birdseye = np.array([poly_points_birdseye], dtype=np.float32)
+    poly_points_normal_view = cv2.perspectiveTransform(poly_points_birdseye, m_inv)
+
 
     # Draw the lane onto the warped blank image
     cv2.polylines(color_warp, np.int32([pts]), isClosed=False, color=(0, 255, 0), thickness=15)
@@ -188,7 +192,7 @@ def final_viz(undist, fit, m_inv):
     result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
 
 
-    return result
+    return result, poly_points_normal_view
 
 
 
