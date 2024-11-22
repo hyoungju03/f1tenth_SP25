@@ -26,7 +26,7 @@ class lanenet_detector():
         self.sub_image = rospy.Subscriber('D435I/color/image_raw', Image, self.img_callback, queue_size=1)
         self.pub_image = rospy.Publisher("lane_detection/annotate", Image, queue_size=1)
         self.pub_bird = rospy.Publisher("lane_detection/birdseye", Image, queue_size=1)
-        self.stop_sign_pub=rospy.Publisher("stop sign detected", Bool, queue_size=1)
+        # self.stop_sign_pub=rospy.Publisher("stop sign detected", Bool, queue_size=1)
         self.lane_line = Line(n=5)
 
         self.detected = False
@@ -46,6 +46,8 @@ class lanenet_detector():
         self.lookahead_col = 0
         self.center_col = 319
         self.steering_error = 0.0
+
+        self.stop_sign_detected = 0
 
         self.skip_frame = 0
         # Load YOLO model for sign detection
@@ -218,19 +220,26 @@ class lanenet_detector():
                 bird_fit_img = bird_fit(img_birdeye, ret, save_file=None)
                 
                 combine_fit_img, pts = final_viz(img, fit, Minv)
-                src_points = np.int32(src)
-                cv2.polylines(combine_fit_img, [src_points], isClosed=True, color=(0,0,255), thickness=2)
+                # src_points = np.int32(src)
+                # cv2.polylines(combine_fit_img, [src_points], isClosed=True, color=(0,0,255), thickness=2)
                 if self.skip_frame > 5:
                     inference = self.yolo_model('sign_raw_image.png', verbose=False)[0].boxes
-                    stop_sign = False
-                    for box in inference:
-                        if box.cls[0] == 1:  # Assuming class ID 1 is for the target sign
-                            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
-                            cv2.rectangle(combine_fit_img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
-                            area = np.abs((x2-x1)*(y2-y1))
-                            if area >= ... :
-                                stop_sign = True
-                    self.stop_sign_pub.publish(Bool(data=stop_sign))
+                    # stop_sign = False
+                    if inference is None:
+                        self.stop_sign_detected = 0
+                    else:
+                        for box in inference:
+                            if box.cls[0] == 1:  # Assuming class ID 1 is for the target sign
+                                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+                                # cv2.rectangle(combine_fit_img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
+                                area = np.abs((x2-x1)*(y2-y1))
+                                if area >= 800:
+                                    self.stop_sign_detected = 1
+                            else:
+                                self.stop_sign_detected = 0
+                        
+                    # self.stop_sign_pub.publish(Bool(data=stop_sign))
+                    
                     self.skip_frame = 0
 
                 # calculate error and draw error on screen
@@ -241,10 +250,10 @@ class lanenet_detector():
                 pt = pts[np.isclose(pts[:,1],400.1)]
                 self.lookahead_col = int(pt[0][0])
 
-                cv2.circle(combine_fit_img, (self.lookahead_col, int(self.lookahead_row)), 5, (0,0,255), -1)
+                # cv2.circle(combine_fit_img, (self.lookahead_col, int(self.lookahead_row)), 5, (0,0,255), -1)
                 
                 # draw center
-                cv2.circle(combine_fit_img, (self.center_col, int(self.lookahead_row)), 5, (255,0,127), -1)
+                # cv2.circle(combine_fit_img, (self.center_col, int(self.lookahead_row)), 5, (255,0,127), -1)
 
                 # self.waypoints = self.waypoint_gen.compute_waypoints(self.coeff)
                 # for waypoint in self.waypoints:
