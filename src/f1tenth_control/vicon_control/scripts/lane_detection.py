@@ -26,25 +26,16 @@ class lanenet_detector():
         self.sub_image = rospy.Subscriber('D435I/color/image_raw', Image, self.img_callback, queue_size=1)
         self.pub_image = rospy.Publisher("lane_detection/annotate", Image, queue_size=1)
         self.pub_bird = rospy.Publisher("lane_detection/birdseye", Image, queue_size=1)
-        # self.stop_sign_pub=rospy.Publisher("stop sign detected", Bool, queue_size=1)
+
         self.lane_line = Line(n=5)
 
         self.detected = False
         self.hist = True
-        
-        # self.Kp = 0.0
-        # self.Ki = 0.0
-        # self.Kd = 0.0
-        # self.controller = PIDController(self.Kp, self.Ki, self.Kd)
-
-        # self.waypoints = []
-        # self.waypoint_gen = WaypointGenerator()
-
         self.coeff = []
 
-        self.lookahead_row = 400
+        self.lookahead_row = 250
         self.lookahead_col = 0
-        self.center_col = 319
+        self.center_col = 640//2
         self.steering_error = 0.0
 
         self.stop_sign_detected = 0
@@ -62,13 +53,7 @@ class lanenet_detector():
             print(e)
 
         raw_img = cv_image.copy()
-
-        cv2.imwrite('sign_raw_image.png', raw_img)
-
         mask_image, bird_image = self.detection(raw_img)
-
-        # cv2.imwrite('raw_image.png', raw_img)
-        # cv2.imwrite('bird.png', bird_image)
 
         if mask_image is not None and bird_image is not None:
             # Convert an OpenCV image into a ROS image message
@@ -92,7 +77,6 @@ class lanenet_detector():
         abs_sobel_y = cv2.convertScaleAbs(sobel_y)
         
         sobel_combined = cv2.addWeighted(abs_sobel_x, 0.5, abs_sobel_y, 0.5, 0)
-
         binary_output = cv2.inRange(sobel_combined, thresh_min, thresh_max).astype(np.uint8)
 
         return binary_output
@@ -114,8 +98,7 @@ class lanenet_detector():
         for h_lower, h_upper, l_lower, l_upper, s_lower, s_upper in ranges:
             lower_yellow = np.array([h_lower, l_lower, s_lower])
             upper_yellow = np.array([h_upper, l_upper, s_upper])
-            
-            # Create a mask for this range and combine with the existing mask
+
             yellow_mask = cv2.bitwise_or(yellow_mask, cv2.inRange(hls_image, lower_yellow, upper_yellow))
         
         return yellow_mask
@@ -138,7 +121,7 @@ class lanenet_detector():
 
         height, width = img.shape[:2]
    
-        src = np.float32([(70, 300), (50, height), (width-50, height), (width-70, 300)])
+        src = np.float32([(150, 300), (35, height), (width-35, height), (width-150, 300)])
         dst = np.float32([[0, 0], [0, height], [width, height], [width, 0]])
 
         M = cv2.getPerspectiveTransform(src, dst)
@@ -147,24 +130,7 @@ class lanenet_detector():
         warped_img = np.uint8(cv2.warpPerspective(img, M, (width, height)))
 
         return warped_img, M, Minv, src, dst
-
-
-    def calculate_error(self, M_inv):
-
-        self.lookahead_col = self.coeff[2] + self.coeff[1] * self.lookahead_row + self.coeff[0] * self.lookahead_row**2
-
-        # vec = np.array([self.lookahead_col, self.lookahead_row, 1])
-
-        # # print(M_inv)
-
-
-        # self.lookahead_col, self.lookahead_row, t = M_inv @ vec
-        # # print(M_inv @ vec)
-
-        self.steering_error = self.center_col - self.lookahead_col
-
-
-
+    
 
     def detection(self, img):
 
@@ -179,49 +145,56 @@ class lanenet_detector():
                 nonzerox = ret['nonzerox']
                 nonzeroy = ret['nonzeroy']
                 lane_inds = ret['lane_inds']
-
         else:
             # Fit lane with previous result
             if not self.detected:
                 ret = line_fit(img_birdeye)
-
                 if ret is not None:
                     fit = ret['fit']
                     nonzerox = ret['nonzerox']
                     nonzeroy = ret['nonzeroy']
                     lane_inds = ret['lane_inds']
-
                     fit = self.lane_line.add_fit(fit)
-
                     self.detected = True
-
             else:
                 fit = self.lane_line.get_fit()
-                
                 ret = tune_fit(img_birdeye, fit)
-
                 if ret is not None:
                     fit = ret['fit']
-                    
                     nonzerox = ret['nonzerox']
                     nonzeroy = ret['nonzeroy']
-
                     lane_inds = ret['lane_inds']
-
                     fit = self.lane_line.add_fit(fit)
-
                 else:
                     self.detected = False
 
             # Annotate original image
             bird_fit_img = None
             combine_fit_img = None
+
             if ret is not None:
                 bird_fit_img = bird_fit(img_birdeye, ret, save_file=None)
-                
                 combine_fit_img, pts = final_viz(img, fit, Minv)
-                # src_points = np.int32(src)
-                # cv2.polylines(combine_fit_img, [src_points], isClosed=True, color=(0,0,255), thickness=2)
+
+                # height, width = img.shape[:2]
+                # src = np.float32([(140, 300), (40, height), (width-40, height), (width-140, 300)])
+                # src = src.astype(int)
+
+                # # Draw the trapezoid
+                # for i in range(4):
+                #     pt1 = tuple(src[i])
+                #     pt2 = tuple(src[(i + 1) % 4])  # Connect to the next point (loop back to start for the last point)
+                #     cv2.line(combine_fit_img, pt1, pt2, (0, 255, 0), 2)  # Draw green lines
+
+                # calculate error and draw error on screen
+                self.coeff = ret['fit']
+                self.lookahead_col = self.coeff[2] + self.coeff[1] * self.lookahead_row + self.coeff[0] * self.lookahead_row**2
+                self.steering_error = self.center_col - self.lookahead_col
+
+                # cv2.circle(bird_fit_img, (int(self.lookahead_col), self.lookahead_row), 5, (0,0,255), -1)
+                # cv2.circle(bird_fit_img, (self.center_col, self.lookahead_row), 5, (0,0,255), -1)
+
+                # YOLO
                 if self.skip_frame > 5:
                     inference = self.yolo_model('sign_raw_image.png', verbose=False)[0].boxes
                     # stop_sign = False
@@ -237,31 +210,7 @@ class lanenet_detector():
                                     self.stop_sign_detected = 1
                             else:
                                 self.stop_sign_detected = 0
-                        
-                    # self.stop_sign_pub.publish(Bool(data=stop_sign))
-                    
                     self.skip_frame = 0
-
-                # calculate error and draw error on screen
-                self.coeff = ret['fit']
-                self.calculate_error(Minv)
-
-                pts = pts[0]
-                pt = pts[np.isclose(pts[:,1],400.1)]
-                self.lookahead_col = int(pt[0][0])
-
-                # cv2.circle(combine_fit_img, (self.lookahead_col, int(self.lookahead_row)), 5, (0,0,255), -1)
-                
-                # draw center
-                # cv2.circle(combine_fit_img, (self.center_col, int(self.lookahead_row)), 5, (255,0,127), -1)
-
-                # self.waypoints = self.waypoint_gen.compute_waypoints(self.coeff)
-                # for waypoint in self.waypoints:
-                #     cv2.circle(bird_fit_img, waypoint, 5, (65,103,274), -1)
-
-                # newwarp = self.waypoint_gen.waypoint_viz(combine_fit_img, self.coeff, Minv)
-
-                # combine_fit_img = cv2.addWeighted(combine_fit_img, 1, newwarp, 1, 0)
 
             else:
                 print("Unable to detect lanes")

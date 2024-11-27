@@ -10,6 +10,7 @@ class PIDController:
         # Initialize terms
         self.integral = 0.0
         self.previous_error = 0.0
+        self.filtered_error = 0.0
         self.previous_time = None
 
 
@@ -23,7 +24,9 @@ class PIDController:
 
         # Update integral and derivative terms
         self.integral += error * dt
-        derivative = (error - self.previous_error) / dt if dt > 0 else 0.0
+        # derivative = (error - self.previous_error) / dt if dt > 0 else 0.0
+        self.filtered_error = 0.9 * self.previous_error + 0.1 * error
+        derivative = (self.filtered_error - self.previous_error) / dt if dt > 0 else 0.0
 
         # Compute control effort
         output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative

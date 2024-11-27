@@ -174,8 +174,7 @@ def pure_pursuit():
 class PIDControl(object):
   
     def __init__(self):
-        
-        
+
         self.rate = rospy.Rate(30)       
         self.stop_sign = False
         #    self.stop_sign_sub = rospy.Subscriber("stop sign detected",Bool,self.stop_sign_callback)
@@ -185,23 +184,19 @@ class PIDControl(object):
         self.drive_msg.header.frame_id = "f1tenth_control"
         self.drive_msg.drive.speed     = 1.2  # m/s, reference speed
 
-
         self.vicon_sub = rospy.Subscriber('/car_state', Float64MultiArray, self.carstate_callback)
         self.x   = 0.0
         self.y   = 0.0
         self.yaw = 0.0
         self.start_time = None
         self.stop_duration=5
-
         self.offset = 0.015  # meters
         self.wheelbase = 0.325  # meters
 
-
         self.lane_detector = lanenet_detector()
 
-
         # PID controller gains (tune these values)
-        self.Kp = 1.0
+        self.Kp = 0.85
         self.Ki = 0.0
         self.Kd = 0.0
         self.controller = PIDController(self.Kp, self.Ki, self.Kd, output_limits=(-0.3, 0.3))
@@ -227,11 +222,9 @@ class PIDControl(object):
         # Convert heading to yaw in radians
         curr_yaw = np.radians(self.yaw)
 
-
         # Reference point is located at the center of rear axle
         curr_x = self.x - self.offset * np.cos(curr_yaw)
         curr_y = self.y - self.offset * np.sin(curr_yaw)
-
 
         return curr_x, curr_y, curr_yaw
 
@@ -271,12 +264,11 @@ class PIDControl(object):
             f_delta = np.clip(steering_correction, -0.3, 0.3)
 
             # Debug statements
-            #    print(f"Steering error (pixels): {lanenet_steering_error}")
-            #    print(f"Steering error (radians): {steering_error_radians}")
-            #    print(f"Steering correction (radians): {steering_correction}")
-            #    print(f"Applied steering angle (radians): {f_delta}")
-            #    print("\n")
-
+            # print(f"Steering error (pixels): {lanenet_steering_error}")
+            # print(f"Steering error (radians): {steering_error_radians}")
+            # print(f"Steering correction (degrees): {steering_correction*180/np.pi}")
+            # print(f"Applied steering angle (degrees): {f_delta*180/np.pi}")
+            # print("\n")
 
             # Publish the steering command
             self.drive_msg.header.stamp = rospy.get_rostime()
@@ -285,19 +277,14 @@ class PIDControl(object):
         
             self.rate.sleep()
 
-
 def pid_controller():
     rospy.init_node('vicon_pid_node', anonymous=True)
-    controller = PIDControl()
-
+    pid = PIDControl()
 
     try:
-        controller.start_pid()
+        pid.start_pid()
     except rospy.ROSInterruptException:
         pass
 
-
 if __name__ == '__main__':
     pid_controller()
-
-
