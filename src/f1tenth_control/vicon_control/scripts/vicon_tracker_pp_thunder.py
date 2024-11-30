@@ -39,13 +39,14 @@ class PIDControl(object):
   
     def __init__(self):
 
-        self.rate = rospy.Rate(10)       
+        self.rate = rospy.Rate(5)       
         self.stop_sign = False
         self.ctrl_pub  = rospy.Publisher("/vesc/low_level/ackermann_cmd_mux/input/navigation",
                                             AckermannDriveStamped, queue_size=1)
         self.drive_msg = AckermannDriveStamped()
         self.drive_msg.header.frame_id = "f1tenth_control"
-        self.drive_msg.drive.speed     = 0.8  # m/s, reference speed
+        self.ref_speed = 0.8
+        self.drive_msg.drive.speed     = self.ref_speed  # m/s, reference speed
 
         self.vicon_sub = rospy.Subscriber('/car_state', Float64MultiArray, self.carstate_callback)
         self.x   = 0.0
@@ -107,9 +108,9 @@ class PIDControl(object):
                         self.drive_msg.drive.speed = 0.0
                     else:
                         self.stop_sign = False
-                        self.drive_msg.drive.speed = 1.2
+                        self.drive_msg.drive.speed = self.ref_speed
             else:
-                self.drive_msg.drive.speed = 1.2
+                self.drive_msg.drive.speed = self.ref_speed
             
             # curr_x, curr_y, curr_yaw = self.get_f1tenth_state()
 
@@ -130,7 +131,6 @@ class PIDControl(object):
             # Debug statements
             print(f"Steering error (pixels): {lanenet_steering_error}")
             print(f"Steering error (radians): {steering_error_radians}")
-            print(f"Steering correction (degrees): {steering_correction*180/np.pi}")
             print(f"Applied steering angle (degrees): {f_delta*180/np.pi}")
             print("\n")
 
@@ -141,7 +141,16 @@ class PIDControl(object):
         
             self.rate.sleep()
 
-def pid_controller():
+# def pid_controller():
+#     rospy.init_node('vicon_pid_node', anonymous=True)
+#     pid = PIDControl()
+
+#     try:
+#         pid.start_pid()
+#     except rospy.ROSInterruptException:
+#         pass
+
+if __name__ == '__main__':
     rospy.init_node('vicon_pid_node', anonymous=True)
     pid = PIDControl()
 
@@ -149,6 +158,3 @@ def pid_controller():
         pid.start_pid()
     except rospy.ROSInterruptException:
         pass
-
-if __name__ == '__main__':
-    pid_controller()
