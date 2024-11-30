@@ -121,7 +121,7 @@ class lanenet_detector():
 
         height, width = img.shape[:2]
    
-        src = np.float32([(150, 300), (35, height), (width-35, height), (width-150, 300)])
+        src = np.float32([(130, 300), (35, height), (width-35, height), (width-130, 300)])
         dst = np.float32([[0, 0], [0, height], [width, height], [width, 0]])
 
         M = cv2.getPerspectiveTransform(src, dst)
@@ -195,22 +195,22 @@ class lanenet_detector():
                 # cv2.circle(bird_fit_img, (self.center_col, self.lookahead_row), 5, (0,0,255), -1)
 
                 # YOLO
-                if self.skip_frame > 5:
-                    inference = self.yolo_model('sign_raw_image.png', verbose=False)[0].boxes
-                    # stop_sign = False
-                    if inference is None:
-                        self.stop_sign_detected = 0
-                    else:
-                        for box in inference:
-                            if box.cls[0] == 1:  # Assuming class ID 1 is for the target sign
-                                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
-                                # cv2.rectangle(combine_fit_img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
-                                area = np.abs((x2-x1)*(y2-y1))
-                                if area >= 800:
-                                    self.stop_sign_detected = 1
-                            else:
-                                self.stop_sign_detected = 0
-                    self.skip_frame = 0
+                # if self.skip_frame > 5:
+                #     inference = self.yolo_model('sign_raw_image.png', verbose=False)[0].boxes
+                #     # stop_sign = False
+                #     if inference is None:
+                #         self.stop_sign_detected = 0
+                #     else:
+                #         for box in inference:
+                #             if box.cls[0] == 1:  # Assuming class ID 1 is for the target sign
+                #                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+                #                 # cv2.rectangle(combine_fit_img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
+                #                 area = np.abs((x2-x1)*(y2-y1))
+                #                 if area >= 800:
+                #                     self.stop_sign_detected = 1
+                #             else:
+                #                 self.stop_sign_detected = 0
+                #     self.skip_frame = 0
 
             else:
                 print("Unable to detect lanes")
