@@ -61,7 +61,7 @@ class PIDControl(object):
 
         # PID controller gains (tune these values)
         self.Kp = 0.5
-        self.Ki = 0.0
+        self.Ki = 0.05
         self.Kd = 0.0
         self.controller = PIDController(self.Kp, self.Ki, self.Kd, output_limits=(-0.3, 0.3))
 

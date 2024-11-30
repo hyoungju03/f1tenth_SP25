@@ -33,7 +33,7 @@ class lanenet_detector():
         self.hist = True
         self.coeff = []
 
-        self.lookahead_row = 410
+        self.lookahead_row = 400
         self.lookahead_col = 0
         self.center_col = 640//2
         self.steering_error = 0.0
