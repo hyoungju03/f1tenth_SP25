@@ -264,11 +264,11 @@ class PIDControl(object):
             f_delta = np.clip(steering_correction, -0.3, 0.3)
 
             # Debug statements
-            # print(f"Steering error (pixels): {lanenet_steering_error}")
-            # print(f"Steering error (radians): {steering_error_radians}")
-            # print(f"Steering correction (degrees): {steering_correction*180/np.pi}")
-            # print(f"Applied steering angle (degrees): {f_delta*180/np.pi}")
-            # print("\n")
+            print(f"Steering error (pixels): {lanenet_steering_error}")
+            print(f"Steering error (radians): {steering_error_radians}")
+            print(f"Steering correction (degrees): {steering_correction*180/np.pi}")
+            print(f"Applied steering angle (degrees): {f_delta*180/np.pi}")
+            print("\n")
 
             # Publish the steering command
             self.drive_msg.header.stamp = rospy.get_rostime()
