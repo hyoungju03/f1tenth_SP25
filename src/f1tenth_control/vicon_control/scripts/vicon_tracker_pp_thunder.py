@@ -41,12 +41,11 @@ class PIDControl(object):
 
         self.rate = rospy.Rate(10)       
         self.stop_sign = False
-        #    self.stop_sign_sub = rospy.Subscriber("stop sign detected",Bool,self.stop_sign_callback)
         self.ctrl_pub  = rospy.Publisher("/vesc/low_level/ackermann_cmd_mux/input/navigation",
                                             AckermannDriveStamped, queue_size=1)
         self.drive_msg = AckermannDriveStamped()
         self.drive_msg.header.frame_id = "f1tenth_control"
-        self.drive_msg.drive.speed     = 1.2  # m/s, reference speed
+        self.drive_msg.drive.speed     = 0.8  # m/s, reference speed
 
         self.vicon_sub = rospy.Subscriber('/car_state', Float64MultiArray, self.carstate_callback)
         self.x   = 0.0
@@ -60,7 +59,7 @@ class PIDControl(object):
         self.lane_detector = lanenet_detector()
 
         # PID controller gains (tune these values)
-        self.Kp = 0.8
+        self.Kp = 0.5
         self.Ki = 0.0
         self.Kd = 0.0
         self.controller = PIDController(self.Kp, self.Ki, self.Kd, output_limits=(-0.3, 0.3))
