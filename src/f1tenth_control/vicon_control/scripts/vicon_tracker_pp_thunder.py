@@ -62,7 +62,7 @@ class PIDControl(object):
         # PID controller gains (tune these values)
         self.Kp = 0.6
         self.Ki = 0.0
-        self.Kd = 0.0
+        self.Kd = 0.3
         self.controller = PIDController(self.Kp, self.Ki, self.Kd, output_limits=(-0.3, 0.3))
 
         # Camera parameters (adjust these based on your camera)
