@@ -45,7 +45,7 @@ class PIDControl(object):
                                             AckermannDriveStamped, queue_size=1)
         self.drive_msg = AckermannDriveStamped()
         self.drive_msg.header.frame_id = "f1tenth_control"
-        self.ref_speed = 0.8
+        self.ref_speed = 1.2
         self.drive_msg.drive.speed     = self.ref_speed  # m/s, reference speed
 
         self.vicon_sub = rospy.Subscriber('/car_state', Float64MultiArray, self.carstate_callback)
