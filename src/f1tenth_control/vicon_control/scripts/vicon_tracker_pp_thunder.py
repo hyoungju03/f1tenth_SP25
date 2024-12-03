@@ -60,7 +60,7 @@ class PIDControl(object):
         self.lane_detector = lanenet_detector()
 
         # PID controller gains (tune these values)
-        self.Kp = 0.5
+        self.Kp = 1
         self.Ki = 0.0
         self.Kd = 0.05
         self.controller = PIDController(self.Kp, self.Ki, self.Kd, output_limits=(-0.3, 0.3))
