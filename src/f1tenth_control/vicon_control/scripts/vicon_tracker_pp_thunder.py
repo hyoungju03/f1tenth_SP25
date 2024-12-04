@@ -40,29 +40,28 @@ class PIDControl(object):
     def __init__(self):
 
         self.rate = rospy.Rate(5)       
-        self.stop_sign = False
+        # self.stop_sign = False
         self.ctrl_pub  = rospy.Publisher("/vesc/low_level/ackermann_cmd_mux/input/navigation",
                                             AckermannDriveStamped, queue_size=1)
         self.drive_msg = AckermannDriveStamped()
         self.drive_msg.header.frame_id = "f1tenth_control"
-        self.ref_speed = 1.2
-        self.drive_msg.drive.speed     = self.ref_speed  # m/s, reference speed
+        self.ref_speed = 0.5
+        self.drive_msg.drive.speed     = self.ref_speed  # m/s, reference spee  d
 
         self.vicon_sub = rospy.Subscriber('/car_state', Float64MultiArray, self.carstate_callback)
         self.x   = 0.0
         self.y   = 0.0
         self.yaw = 0.0
-        self.start_time = None
-        self.stop_duration=5
+       
         self.offset = 0.015  # meters
         self.wheelbase = 0.325  # meters
 
         self.lane_detector = lanenet_detector()
 
         # PID controller gains (tune these values)
-        self.Kp = 0.6
+        self.Kp = 0.4
         self.Ki = 0.0
-        self.Kd = 0.3
+        self.Kd = 0.75
         self.controller = PIDController(self.Kp, self.Ki, self.Kd, output_limits=(-0.3, 0.3))
 
         # Camera parameters (adjust these based on your camera)
@@ -70,11 +69,16 @@ class PIDControl(object):
         self.camera_fov_deg = 60  # degrees
         self.radians_per_pixel = (self.camera_fov_deg / self.image_width) * (np.pi / 180)  # radians per pixel
 
-    def stop_sign_callback(self,msg):
-        if msg.data:
-            if not self.stop_sign:
-                self.stop_sign = True
-                self.start_time=time.time()
+        self.start_time = None
+        self.stop_duration = 5.0  # seconds
+        self.stopping = False
+        self.stop_sign_handled = False
+
+    # def stop_sign_callback(self,msg):
+    #     if msg.data:
+    #         if not self.stop_sign:
+    #             self.stop_sign = True
+    #             self.start_time=time.time()
 
     def carstate_callback(self, carstate_msg):
         self.x   = carstate_msg.data[0]  # meters
@@ -94,38 +98,35 @@ class PIDControl(object):
 
 
     def start_pid(self):
-      
         while not rospy.is_shutdown():
+
+            print(self.lane_detector.stop_sign_detected, self.lane_detector.stop_sign_area)
+
             current_time = time.time()
 
-            if self.lane_detector.stop_sign_detected:
-                if self.start_time is None:
-                    self.start_time = time.time()
+            if self.stopping:
+                elapsed_time = current_time - self.start_time
+                if elapsed_time < self.stop_duration:
+                    self.drive_msg.drive.speed = 0.0
+                    print("Stopped")
                 else:
-                    elapsed_time = current_time - self.start_time
-                    
-                    if elapsed_time < self.stop_duration:
-                        self.drive_msg.drive.speed = 0.0
-                    else:
-                        self.stop_sign = False
-                        self.drive_msg.drive.speed = self.ref_speed
+                    self.drive_msg.drive.speed = self.ref_speed
+                    self.stopping = False
+                    self.stop_sign_handled = True
+                    print("Going")
+            elif self.lane_detector.stop_sign_detected and not self.stop_sign_handled:
+                self.start_time = current_time
+                self.stopping = True
+                print("Detected stop sign. Stopping...")
             else:
+                # Resume normal operation
                 self.drive_msg.drive.speed = self.ref_speed
-            
-            # curr_x, curr_y, curr_yaw = self.get_f1tenth_state()
 
             # Get the steering error from the lane detector
             lanenet_steering_error = self.lane_detector.steering_error
-
-            # Convert steering error from pixels to radians
             steering_error_radians = lanenet_steering_error * self.radians_per_pixel
-
-            # Compute the control action using the PID controller
-            current_time = rospy.get_time()
-            steering_correction = self.controller.compute(steering_error_radians, current_time)
-
-            # Set the steering angle
-            # f_delta = np.clip(steering_correction, -0.3, 0.3)
+            current_time_ros = rospy.get_time()
+            steering_correction = self.controller.compute(steering_error_radians, current_time_ros)
             f_delta = steering_correction
 
             # Debug statements
@@ -138,8 +139,9 @@ class PIDControl(object):
             self.drive_msg.header.stamp = rospy.get_rostime()
             self.drive_msg.drive.steering_angle = f_delta
             self.ctrl_pub.publish(self.drive_msg)
-        
+
             self.rate.sleep()
+
 
 # def pid_controller():
 #     rospy.init_node('vicon_pid_node', anonymous=True)
