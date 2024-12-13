@@ -31,15 +31,16 @@ class lanenet_detector():
         self.hist = True
         self.coeff = []
 
-        self.lookahead_row = 400
+        self.lookahead_row = 345
         self.lookahead_col = 0
-        self.center_col = 640//2-8
+        self.center_col = 640//2 + 40
         self.steering_error = 0.0
 
-        self.stop_sign_detected = 0
-        self.stop_sign_area = 0
+        self.stop_detected = 0
+        self.stop_area = 0
 
-        self.traffic_light = None
+        self.go_detected = 0
+        self.go_area = 0
 
         self.skip_frame = 0
 
@@ -57,7 +58,7 @@ class lanenet_detector():
 
         mask_image, bird_image = self.detection(raw_img)
 
-        # cv2.imwrite('bird_image.png', bird_image)
+        cv2.imwrite('bird_image.png', bird_image)
 
         if mask_image is not None and bird_image is not None:
             # Convert an OpenCV image into a ROS image message
@@ -135,224 +136,86 @@ class lanenet_detector():
 
         return warped_img, M, Minv, src, dst
 
-    # def detect_stop_sign(self, image):
-    #     """
-    #     Detect stop signs in the image using color and shape detection.
-    #     Args:
-    #         image (np.array): The input image (BGR format).
-    #     Returns:
-    #         stop_detected (bool): True if a stop sign is detected on the right side of the screen.
-    #         stop_area (int): The area of the detected stop sign (for debugging or further use).
-    #     """
-    #     stop_detected = False
-    #     stop_area = 0
-
-    #     # Convert the image to HSV color space
-    #     hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-    #     # Define the narrow red color range for stop sign detection
-    #     lower_red1 = np.array([0, 70, 50])
-    #     upper_red1 = np.array([10, 255, 255])
-    #     lower_red2 = np.array([170, 70, 50])
-    #     upper_red2 = np.array([180, 255, 255])
-
-
-    #     # Create masks for red color
-    #     mask1 = cv2.inRange(hsv_image, lower_red1, upper_red1)
-    #     mask2 = cv2.inRange(hsv_image, lower_red2, upper_red2)
-    #     red_mask = cv2.bitwise_or(mask1, mask2)
-
-    #     # Apply morphological operations to clean up the mask
-    #     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-    #     red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_CLOSE, kernel)
-
-    #     # Find contours in the mask
-    #     contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    #     for contour in contours:
-    #         # Approximate the contour to reduce the number of vertices
-    #         approx = cv2.approxPolyDP(contour, 0.02 * cv2.arcLength(contour, True), True)
-
-    #         # Check if the contour has 6-10 vertices (octagon-like) and is reasonably large
-    #         if 7 <= len(approx) <= 9 and cv2.contourArea(contour) > 500:
-    #             # Calculate the area of the contour
-    #             stop_area = cv2.contourArea(contour)
-
-    #             self.stop_sign_area = stop_area
-
-    #             # Get the left-most vertex
-    #             # leftmost_vertex = min(approx, key=lambda point: point[0][0])[0][0]
-
-    #             # Check if the left-most vertex is on the right side of the screen
-    #             if stop_area > 1600:
-    #                 # Draw the contour and vertices on the image
-    #                 # cv2.drawContours(image, [approx], -1, (0, 255, 0), 3)
-    #                 # for point in approx:
-    #                 #     cv2.circle(image, tuple(point[0]), 5, (255, 0, 0), -1)  # Draw vertices as blue dots
-
-    #                 stop_detected = True
-    #                 break
-
-    #     # Save the image with annotations
-    #     # cv2.imwrite("cv2_ss_img_with_annotations.png", image)
-
-    #     return stop_detected, stop_area
-
-    def detect_traffic_control(self, image):
-        """
-        Detect stop signs and traffic lights in the image using color and shape detection.
-        Args:
-            image (np.array): The input image (BGR format).
-        Returns:
-            stop_detected (bool): True if a stop sign is detected.
-            stop_area (int): The area of the detected stop sign.
-            traffic_light (str): "RED", "GREEN", or None based on the detected traffic light color.
-        """
-        # Initialize results
+    def detect_stop_go(self, image):
+        # Initialize detection variables
         stop_detected = False
         stop_area = 0
-        traffic_light = None
+        go_detected = False
+        go_area = 0
 
-        # Convert the image to HSV color space
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-        # Stop sign detection: Define red color range
-        lower_red1 = np.array([0, 70, 50])
-        upper_red1 = np.array([10, 255, 255])
-        lower_red2 = np.array([170, 70, 50])
-        upper_red2 = np.array([180, 255, 255])
+        # Red detection range (for "stop")
+        lower_red = np.array([170, 100, 50])
+        upper_red = np.array([179, 255, 200])
 
-        # Create masks for red color (stop sign and red light)
-        mask1 = cv2.inRange(hsv_image, lower_red1, upper_red1)
-        mask2 = cv2.inRange(hsv_image, lower_red2, upper_red2)
-        red_mask = cv2.bitwise_or(mask1, mask2)
+        # Green detection range (for "go")
+        lower_green = np.array([55, 90, 40])
+        upper_green = np.array([75, 255, 130])
 
-        # Apply morphological operations to clean up the mask
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-        red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_CLOSE, kernel)
+        red_mask = cv2.inRange(hsv_image, lower_red, upper_red)
+        green_mask = cv2.inRange(hsv_image, lower_green, upper_green)
 
-        # Find contours in the red mask
-        contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Morphological operations to clean up noise for red
+        kernel_red = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_CLOSE, kernel_red)
 
-        # Process stop sign detection first
-        for contour in contours:
+        # Morphological operations to clean up noise for green
+        kernel_green = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        green_mask = cv2.morphologyEx(green_mask, cv2.MORPH_CLOSE, kernel_green)
+
+        # Detect stop-like contours (red)
+        contours_red, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for contour in contours_red:
             approx = cv2.approxPolyDP(contour, 0.02 * cv2.arcLength(contour, True), True)
             area = cv2.contourArea(contour)
-
-            # Check for stop sign: Approximate octagon shape and sufficient size
-            if 7 <= len(approx) <= 9 and area > 1600:
-                stop_detected = True
-                stop_area = area
-                break
-
-        # If a stop sign is detected, skip traffic light detection
-        if not stop_detected:
-            # Traffic light detection: Define green color range
-            lower_green = np.array([40, 50, 50])
-            upper_green = np.array([90, 255, 255])
-
-            # Create mask for green light
-            green_mask = cv2.inRange(hsv_image, lower_green, upper_green)
-
-            # Find contours for red and green masks
-            green_contours, _ = cv2.findContours(green_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-            # Check for red traffic light
-            for contour in contours:
-                if cv2.contourArea(contour) > 500:  # Minimum area threshold
-                    traffic_light = "RED"
+            # Arbitrary polygon shape and area thresholds
+            if len(approx) > 7:
+                if area > 300:
+                    # Mark detected stop
+                    cv2.drawContours(image, [approx], -1, (0, 0, 255), 3)  # Red contour for stop
+                    for point in approx:
+                        cv2.circle(image, tuple(point[0]), 5, (255, 0, 0), -1)
+                    stop_detected = True
+                    stop_area = area
                     break
 
-            # Check for green traffic light
-            if traffic_light is None:  # Only check for green if red is not detected
-                for contour in green_contours:
-                    if cv2.contourArea(contour) > 500:  # Minimum area threshold
-                        traffic_light = "GREEN"
-                        break
+        # Detect go-like contours (green)
+        contours_green, _ = cv2.findContours(green_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for contour in contours_green:
+            approx = cv2.approxPolyDP(contour, 0.02 * cv2.arcLength(contour, True), True)
+            area = cv2.contourArea(contour)
+            # Arbitrary polygon shape and area thresholds for go
+            if len(approx) > 7:
+                if area > 300:
+                    # Mark detected go
+                    cv2.drawContours(image, [approx], -1, (0, 255, 0), 3)  # Green contour for go
+                    for point in approx:
+                        cv2.circle(image, tuple(point[0]), 5, (0, 255, 0), -1)
+                    go_detected = True
+                    go_area = area
+                    break
 
-        return stop_detected, stop_area, traffic_light
+        # Annotate results on the image
+        text_offset = 50
+        if stop_detected:
+            cv2.putText(image, f"STOP DETECTED (Area: {stop_area})", (10, text_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255), 2)
+            text_offset += 30
+        if go_detected:
+            cv2.putText(image, f"GO DETECTED (Area: {go_area})", (10, text_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
 
-    # def detection(self, img):
+        cv2.imwrite("cv2_ss_img_with_annotations.png", image)
 
-    #     binary_img = self.combinedBinaryImage(img)
-    #     img_birdeye, M, Minv, src, dst = self.perspective_transform(binary_img)
+        return stop_detected, stop_area, go_detected, go_area
 
-    #     if not self.hist:
-    #         # Fit lane without previous result
-    #         ret = line_fit(img_birdeye)
-    #         if ret is not None:
-    #             fit = ret['fit']
-    #             nonzerox = ret['nonzerox']
-    #             nonzeroy = ret['nonzeroy']
-    #             lane_inds = ret['lane_inds']
-    #     else:
-    #         # Fit lane with previous result
-    #         if not self.detected:
-    #             ret = line_fit(img_birdeye)
-    #             if ret is not None:
-    #                 fit = ret['fit']
-    #                 nonzerox = ret['nonzerox']
-    #                 nonzeroy = ret['nonzeroy']
-    #                 lane_inds = ret['lane_inds']
-    #                 fit = self.lane_line.add_fit(fit)
-    #                 self.detected = True
-    #         else:
-    #             fit = self.lane_line.get_fit()
-    #             ret = tune_fit(img_birdeye, fit)
-    #             if ret is not None:
-    #                 fit = ret['fit']
-    #                 nonzerox = ret['nonzerox']
-    #                 nonzeroy = ret['nonzeroy']
-    #                 lane_inds = ret['lane_inds']
-    #                 fit = self.lane_line.add_fit(fit)
-    #             else:
-    #                 self.detected = False
-
-    #         # Annotate original image
-    #         bird_fit_img = None
-    #         combine_fit_img = None
-
-    #         if ret is not None:
-    #             self.skip_frame = self.skip_frame + 1
-
-    #             bird_fit_img = bird_fit(img_birdeye, ret, save_file=None)
-    #             combine_fit_img, pts = final_viz(img, fit, Minv)
-
-    #             # height, width = img.shape[:2]
-    #             # src = np.float32([(140, 300), (40, height), (width-40, height), (width-140, 300)])
-    #             # src = src.astype(int)
-
-    #             # # Draw the trapezoid
-    #             # for i in range(4):
-    #             #     pt1 = tuple(src[i])
-    #             #     pt2 = tuple(src[(i + 1) % 4])  # Connect to the next point (loop back to start for the last point)
-    #             #     cv2.line(combine_fit_img, pt1, pt2, (0, 255, 0), 2)  # Draw green lines
-
-    #             # calculate error and draw error on screen
-    #             self.coeff = ret['fit']
-    #             self.lookahead_col = self.coeff[2] + self.coeff[1] * self.lookahead_row + self.coeff[0] * self.lookahead_row**2
-    #             self.steering_error = self.center_col - self.lookahead_col
-
-    #             # cv2.circle(bird_fit_img, (int(self.lookahead_col), self.lookahead_row), 5, (0,0,255), -1)
-    #             # cv2.circle(bird_fit_img, (self.center_col, self.lookahead_row), 5, (0,0,255), -1)
-
-    #             # YOLO
-    #             if self.skip_frame > 3:
-    #                 stop_detected, stop_area = self.detect_stop_sign(img)
-    #                 # self.stop_sign_detected = int(stop_detected)
-    #                 self.stop_sign_area = stop_area
-    #                 self.skip_frame = 0
-
-    #         else:
-    #             print("Unable to detect lanes")
-
-    #         return combine_fit_img, bird_fit_img
 
     def detection(self, img):
+
         binary_img = self.combinedBinaryImage(img)
         img_birdeye, M, Minv, src, dst = self.perspective_transform(binary_img)
 
         if not self.hist:
+            # Fit lane without previous result
             ret = line_fit(img_birdeye)
             if ret is not None:
                 fit = ret['fit']
@@ -360,6 +223,7 @@ class lanenet_detector():
                 nonzeroy = ret['nonzeroy']
                 lane_inds = ret['lane_inds']
         else:
+            # Fit lane with previous result
             if not self.detected:
                 ret = line_fit(img_birdeye)
                 if ret is not None:
@@ -381,27 +245,35 @@ class lanenet_detector():
                 else:
                     self.detected = False
 
+            # Annotate original image
             bird_fit_img = None
             combine_fit_img = None
 
             if ret is not None:
-                self.skip_frame += 1
+                self.skip_frame = self.skip_frame + 1
 
                 bird_fit_img = bird_fit(img_birdeye, ret, save_file=None)
                 combine_fit_img, pts = final_viz(img, fit, Minv)
 
+                # calculate error and draw error on screen
                 self.coeff = ret['fit']
-                self.lookahead_col = self.coeff[2] + self.coeff[1] * self.lookahead_row + self.coeff[0] * self.lookahead_row ** 2
+                self.lookahead_col = self.coeff[2] + self.coeff[1] * self.lookahead_row + self.coeff[0] * self.lookahead_row**2
                 self.steering_error = self.center_col - self.lookahead_col
 
+                # cv2.circle(bird_fit_img, (int(self.lookahead_col), self.lookahead_row), 5, (0,0,255), -1)
+                # cv2.circle(bird_fit_img, (self.center_col, self.lookahead_row), 5, (0,0,255), -1)
+
                 if self.skip_frame > 3:
-                    stop_detected, stop_area, traffic_light = self.detect_traffic_control(img)
-                    # self.stop_sign_area = stop_area
-                    # self.traffic_light = traffic_light
+                    stop_detected, stop_area, go_detected, go_area = self.detect_stop_go(combine_fit_img)
+                    self.stop_detected = int(stop_detected)
+                    self.stop_area = stop_area
+                    self.go_detected = int(go_detected)
+                    self.go_area = go_area
                     self.skip_frame = 0
 
             else:
                 print("Unable to detect lanes")
 
-            return combine_fit_img, bird_fit_img
+            cv2.imwrite('combine.png', combine_fit_img)
 
+            return combine_fit_img, bird_fit_img
