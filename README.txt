@@ -15,7 +15,7 @@ $ source devel/setup.bash
 $ roslaunch racecar sensors.launch 
 
 $ source devel/setup.bash
-$ rosrun vicon_control vicon_tracker_pp.py
+$ rosrun vicon_control vision_lanefollower_pid.py
 
 # ----------------------------------------------
 
