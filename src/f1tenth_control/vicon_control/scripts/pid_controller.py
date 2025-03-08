@@ -22,16 +22,12 @@ class PIDController:
         else:
             dt = current_time - self.previous_time
 
-        # # Update integral and derivative terms
-        self.integral += error * dt
-        # derivative = (error - self.previous_error) / dt if dt > 0 else 0.0
-        # self.filtered_error = 0.9 * self.previous_error + 0.1 * error
-        self.filtered_error = 0.2 * self.previous_error + 0.8 * error
-        # derivative = (self.filtered_error - self.previous_error) / dt if dt > 0 else 0.0
+        # Update integral and derivative terms
         derivative = self.filtered_error - self.previous_error
+        self.integral += error * dt
 
+        self.filtered_error = 0.2 * self.previous_error + 0.8 * error
         output = self.Kp * error + self.Ki * self.integral + self.Kd * derivative
-        output = output
         
         # Apply output limits
         if self.output_limits[0] is not None:
