@@ -155,8 +155,6 @@ class lanenet_detector():
             combine_fit_img = None
 
             if ret is not None:
-                self.skip_frame = self.skip_frame + 1
-
                 bird_fit_img = bird_fit(img_birdeye, ret, save_file=None)
                 combine_fit_img, pts = final_viz(img, fit, Minv)
 
