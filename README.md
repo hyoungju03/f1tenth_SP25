@@ -176,42 +176,29 @@ Open each command in a **separate terminal window**, and ensure to source the wo
 
 ```bash
 source devel/setup.bash
-roslaunch racecar visualization.launch
+roscore
 ```
 
-### Terminal 2: Racecar Control
+### Terminal 2: Racecar Camera Launch
 
 ```bash
 source devel/setup.bash
 roslaunch racecar sensors.launch
 ```
 
-### Terminal 2: Lane Following PID Control
+### Terminal 3: Racecar Remote Launch
 
 ```bash
 source devel/setup.bash
-rosrun vicon_control vision_lanefollower_pid.py
+roslaunch racecar teleop.launch
 ```
 
----
-
-## **Visualization**
+### Terminal 4: Lane Following PID Control
 
 ```bash
 source devel/setup.bash
-roslaunch racecar visualization.launch
+python3 vision_lanefollower_pid.py
 ```
-
----
-
-## **Summary**
-
-| Task                  | Command |
-|-----------------------|---------|
-| Build Workspace       | `catkin_make` |
-| Launch ROS Master & Ads | `roslaunch racecar sensors.launch` |
-| Lane PID control      | `rosrun vicon_control vision_lanefollower_pid.py` |
-| Visualization         | `roslaunch racecar visualization.launch` |
 
 ---
 
