@@ -160,6 +160,66 @@ Tweak these for better performance. If the vehicle oscillates too much, try lowe
 
 ----
 
+## **Build Workspace**
+
+```bash
+catkin_make
+```
+
+---
+
+## **Launch Commands**
+
+Open each command in a **separate terminal window**, and ensure to source the workspace:
+
+### Terminal 1: ROS Master
+
+```bash
+source devel/setup.bash
+roslaunch racecar visualization.launch
+```
+
+### Terminal 2: Racecar Control
+
+```bash
+source devel/setup.bash
+roslaunch racecar sensors.launch
+```
+
+### Terminal 2: Lane Following PID Control
+
+```bash
+source devel/setup.bash
+rosrun vicon_control vision_lanefollower_pid.py
+```
+
+---
+
+## **Visualization**
+
+```bash
+source devel/setup.bash
+roslaunch racecar visualization.launch
+```
+
+---
+
+## **Summary**
+
+| Task                  | Command |
+|-----------------------|---------|
+| Build Workspace       | `catkin_make` |
+| Launch ROS Master & Ads | `roslaunch racecar sensors.launch` |
+| Lane PID control      | `rosrun vicon_control vision_lanefollower_pid.py` |
+| Visualization         | `roslaunch racecar visualization.launch` |
+
+---
+
+**Note:** Each command runs in a dedicated terminal window.
+
+---
+
+
 # **First Steps**
 
 1. **Get the code running**. Ensure your environment is set up, and that the basic thresholding + perspective transform pipeline works. When the code is running, your car should roughly follow the yellow line on the track.
@@ -170,21 +230,4 @@ You should now have a decent overview of how the lane detection module is organi
 
 # ----------------------------------------------
 
-$ catkin_make
 
-$ source devel/setup.bash
-$ roscore
-
-$ source devel/setup.bash
-$ roslaunch racecar teleop.launch
-
-$ source devel/setup.bash
-$ roslaunch racecar sensors.launch 
-
-$ source devel/setup.bash
-$ rosrun vicon_control vision_lanefollower_pid.py
-
-# ----------------------------------------------
-
-$ source devel/setup.bash
-$ roslaunch racecar visualization.launch
