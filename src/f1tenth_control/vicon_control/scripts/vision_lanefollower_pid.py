@@ -3,7 +3,7 @@
 #================================================================
 # File name: vision_lanefollower_pid.py                                                                  
 # Description: waypoints tracker using pid                                                                
-# Author: Team Thunder [FA24]
+# Author: Team Thunder [FA24] & PNatarajan123
 # Email: hl89@illinois.edu
 # Date created: 08/02/2021                                                                
 # Date last modified: 03/08/2025                                                          
@@ -14,13 +14,13 @@
 from __future__ import print_function
 
 # Python Headers
-import os 
-import csv
-import math
-import time
+# import os 
+# import csv
+# import math
+# import time
 import numpy as np
 from numpy import linalg as la
-import scipy.signal as signal
+# import scipy.signal as signal
 
 from cv_bridge import CvBridge
 
@@ -56,7 +56,7 @@ class PIDControl(object):
 
         # PID controller gains (you can tune these values)
         self.Kp = 0.34
-        self.Ki = 0.0
+        self.Ki = 0.0   
         self.Kd = 0.24
 
         # init controllers
