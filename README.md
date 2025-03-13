@@ -2,7 +2,7 @@
 
 This document is designed as a high-level guide for you to understand the main components and code structure for a **lane detection** pipeline using **color thresholding** and a **PID controller** to follow lanes. 
 
-> **Note**: This version of lane detection is more archaic, as it relies on straightforward color thresholding. You are free to keep it simple or adapt it into a more advanced technique (e.g. building on your MP1) if you wish. Throughout this guide, we will frequently point you to two primary code files of interest that you should start modifying:
+> **Note**: This version of lane detection is more archaic, as it relies on straightforward color thresholding. You are free to keep it simple or adapt it into a more advanced technique (e.g. building on your MP1) if you wish. This code was tested during the night, so you will probably have to modify aspects of it to get the vehicle to move smoothly around the track. Throughout this guide, we will frequently point you to two primary code files of interest that you should start modifying:
 >
 > - **`lane_detection.py`**
 > - **`vision_lanefollower_pid.py`**
@@ -214,7 +214,4 @@ python3 vision_lanefollower_pid.py
 2. **Review the main functions**. Understand how each piece (threshold, transform, detection, PID) comes together. You can then experiment with your own ideas, or even build a more advanced approach on top of it. If you prefer, you can also start your own code from scratch, but this starter setup is there to help. Feel free to look at other files in the project; they are all commented.
 
 You should now have a decent overview of how the lane detection module is organized and where the PID controller fits in. Good luck, and remember that everything in these files is fair game for improvement or complete replacement. Just be sure you understand the existing flow before making changes.
-
-# ----------------------------------------------
-
 
