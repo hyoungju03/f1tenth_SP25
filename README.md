@@ -22,8 +22,7 @@ This pipeline focuses on using **color thresholding** to isolate lane markings i
 5. **Compute the lane position** and derive a steering error with respect to the vehicle’s center.  
 6. **Use a PID controller** to reduce the steering error and follow the lane.
 
-> **Space for image or diagram**  
-*(You can insert a high-level diagram of your lane detection + PID pipeline here.)*
+![image](https://github.com/user-attachments/assets/a0df3d44-c91e-4f1d-96f9-e7f655b06274)
 
 As mentioned, this is an older approach to lane detection. The methods here (especially thresholding) may need to be tuned or improved depending on lighting or real-world changes. You are encouraged to experiment and extend these methods, or even adapt your MP1 logic if desired.
 
@@ -49,8 +48,7 @@ The **`color_thresh`** function is responsible for filtering out pixels that mat
         # ... code that converts to HLS and applies threshold ...
         return yellow_mask
 
-> **Space for pictures or examples**  
-*(Here you can show example images or masks illustrating how color thresholding looks before and after.)*
+![alt-text-1](![image](https://github.com/user-attachments/assets/89e23696-36ae-4f98-a14a-dbac347d94a2)) ![alt-text-2](![image](https://github.com/user-attachments/assets/1313cab1-9fb4-4e67-ab02-0ae5844e059f))
 
 In our project, we assume the lane lines are **yellow**, so we provide two HLS ranges that capture most yellow tones.
 
