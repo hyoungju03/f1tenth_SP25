@@ -23,6 +23,7 @@ This pipeline focuses on using **color thresholding** to isolate lane markings i
 6. **Use a PID controller** to reduce the steering error and follow the lane.
 
 ![image](https://github.com/user-attachments/assets/a0df3d44-c91e-4f1d-96f9-e7f655b06274)
+Project Pipeline
 
 As mentioned, this is an older approach to lane detection. The methods here (especially thresholding) may need to be tuned or improved depending on lighting or real-world changes. You are encouraged to experiment and extend these methods, or even adapt your MP1 logic if desired.
 
@@ -48,7 +49,11 @@ The **`color_thresh`** function is responsible for filtering out pixels that mat
         # ... code that converts to HLS and applies threshold ...
         return yellow_mask
 
-![alt-text-1](![image](https://github.com/user-attachments/assets/89e23696-36ae-4f98-a14a-dbac347d94a2)) ![alt-text-2](![image](https://github.com/user-attachments/assets/1313cab1-9fb4-4e67-ab02-0ae5844e059f))
+![image](https://github.com/user-attachments/assets/07c333c2-13e2-45b6-b711-1f80e6125f62)
+Original Image
+
+![image](https://github.com/user-attachments/assets/8ab51937-1e3b-40e3-8aad-5006d54b86b8)
+Color Threshold Image
 
 In our project, we assume the lane lines are **yellow**, so we provide two HLS ranges that capture most yellow tones.
 
@@ -90,8 +95,11 @@ The **`perspective_transform`** function better estimates lane curvature and veh
         # 3. Use cv2.getPerspectiveTransform(...) and cv2.warpPerspective(...)
         return warped_img, M, Minv, src, dst
 
-> **Space for pictures or examples**  
-*(Here you can show how the image looks before and after the perspective transform.)*
+![image](https://github.com/user-attachments/assets/07c333c2-13e2-45b6-b711-1f80e6125f62)
+Original Image
+
+![image](https://github.com/user-attachments/assets/6aa07e43-627b-4ee1-abc7-aab348073258)
+Birdseye Image
 
 ----
 
