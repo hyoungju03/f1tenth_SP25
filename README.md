@@ -132,7 +132,7 @@ The **`perspective_transform`** function better estimates lane curvature and veh
     </tr>
     <tr>
       <td align="center">Original Image</td>
-      <td align="center">Color Threshold Image</td>
+      <td align="center">Birdseye View Image</td>
     </tr>
   </table>
 </div>
@@ -140,7 +140,7 @@ The **`perspective_transform`** function better estimates lane curvature and veh
 
 ## **Gradient Thresholding**
 
-In this section, we introduce an optional **`gradient_thresh`** function that you could implement in your **`lane_detection.py`** file to detect lane lines based on gradient information. While not strictly required, using gradient thresholding in combination with color thresholding can sometimes yield better results, especially in scenarios where color alone might not sufficiently isolate lane lines. Note that this function is not implemented and it is up to you code it, but we will provide detailed pseudocode to get you started.
+In this section, we introduce an optional **`gradient_thresh`** function that you could implement in your **`lane_detection.py`** file to detect lane lines based on gradient information using Sobel filters. While not strictly required, using gradient thresholding in combination with color thresholding can sometimes yield better results, especially in scenarios where color alone might not sufficiently isolate lane lines. Note that this function is not implemented and it is up to you code it, but we will provide detailed pseudocode to get you started.
 
     def gradient_thresh(self, img, thresh_min=25, thresh_max=100):
         """
@@ -160,17 +160,17 @@ In this section, we introduce an optional **`gradient_thresh`** function that yo
         <img src="https://github.com/user-attachments/assets/07c333c2-13e2-45b6-b711-1f80e6125f62" alt="Original Image" width="300">
       </td>
       <td align="center">
-        <img src="![image](https://github.com/user-attachments/assets/e677e6df-2733-4dac-ab9f-bc78b38d690b)" alt="Color Threshold Image" width="300">
+        <img src="https://github.com/user-attachments/assets/e677e6df-2733-4dac-ab9f-bc78b38d690b" alt="Gradient Threshold Image" width="300">
       </td>
     </tr>
     <tr>
       <td align="center">Original Image</td>
-      <td align="center">Color Threshold Image</td>
+      <td align="center">Gradient Threshold Image</td>
     </tr>
   </table>
 </div>
 
-**Hint:** You can upload the original image to Google CoLab and do testing there to unit test your gradient function.
+**Hint:** You can upload the original image to Google CoLab and unit test your gradient function.
 
 ----
 
