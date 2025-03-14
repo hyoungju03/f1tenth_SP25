@@ -191,12 +191,6 @@ Tweak these for better performance. If the vehicle oscillates too much, try lowe
 
 # **Running the Code**
 
-## **Build Workspace**
-
-```bash
-catkin_make
-```
-
 ---
 
 ## **Launch Commands**
@@ -205,6 +199,12 @@ Open each command in a **separate terminal window**, and ensure to source the wo
 
 ```bash
 cd ~/Project_Root_Directory
+```
+
+## **Build Workspace**
+
+```bash
+catkin_make
 ```
 
 ### Terminal 1: ROS Master
