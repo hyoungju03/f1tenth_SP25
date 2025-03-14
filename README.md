@@ -170,7 +170,11 @@ catkin_make
 
 ## **Launch Commands**
 
-Open each command in a **separate terminal window**, and ensure to source the workspace:
+Open each command in a **separate terminal window**, and ensure to source the workspace by running the four commands in your project directory:
+
+```bash
+cd ~/Project_Root_Directory
+```
 
 ### Terminal 1: ROS Master
 
