@@ -31,7 +31,7 @@ This pipeline focuses on using **color thresholding** to isolate lane markings i
     </tr>
     <tr>
       <td align="center">
-        <strong>Project Pipeline</strong>
+        Project Pipeline
       </td>
     </tr>
   </table>
