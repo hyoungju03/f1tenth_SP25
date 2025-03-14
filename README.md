@@ -23,7 +23,7 @@ This pipeline focuses on using **color thresholding** to isolate lane markings i
 6. **Use a PID controller** to reduce the steering error and follow the lane.
 
 ![image](https://github.com/user-attachments/assets/a0df3d44-c91e-4f1d-96f9-e7f655b06274)
-<p style="text-align:center"> **Project Pipeline** </p>
+<center><strong>Project Pipeline</strong></center>
 
 As mentioned, this is an older approach to lane detection. The methods here (especially thresholding) may need to be tuned or improved depending on lighting or real-world changes. You are encouraged to experiment and extend these methods, or even adapt your MP1 logic if desired.
 
