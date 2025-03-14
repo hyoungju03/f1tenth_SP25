@@ -1,6 +1,84 @@
-# **ECE484 Final Project: Lane Detection and PID Controller Guide**
+# **ECE484 Final Project: Starter Code Guide**
+There is 2 different starter code available for you:
+##  **I. Vicon Pure Pursuit Tracker**
+As shown in the F1-Tenth field trip, this code uses a pure pursuit controller to track a trajectory defined by a fixed set of waypoints. The localization is provided by the lab's Vicon cameras and is sent to the vehicle through the ViconMavlink. Please contact the TA/CA to set this up for you.
 
-This document is designed as a high-level guide for you to understand the main components and code structure for a **lane detection** pipeline using **color thresholding** and a **PID controller** to follow lanes. 
+The primary file for running the vicon tracker code is located in
+> **`src/f1tenth_control/vicon_control/scripts/vicon_tracker_pp.py`**
+
+All starter code is placed in this scripts directory
+This vicon tracker code follows what is described in the MP2 documentation where a lookahead point is chosen from the waypoints and the steering angle is computed.
+
+### **Tuning**
+The steering angle can be tuned with the variable 
+```python
+k
+```
+
+and the lookahead distance can be tuned with
+```python
+self.look_ahead
+```
+
+The speed can also be adjusted with
+```python
+self.drive_msg.drive.speed
+```
+The waypoints are currently loaded in from 
+```python
+'vicon_control/xyhead_demo_pp.csv'.
+```
+
+They may not correspond with the lane exactly, so it is recommended to re-record the waypoints by moving the car around the track with a cart and perodically saving the local coordinates from vicon_bridge.py.
+
+
+## **Running the Code**
+
+### **Launch Commands**
+
+Open each command in a **separate terminal window**, and ensure to source the workspace by running the commands in your project directory:
+
+```bash
+cd ~/Project_Root_Directory
+```
+
+#### **Build Workspace (not necessary if WS is placed in nx directory)**
+
+```bash
+catkin_make
+```
+
+
+#### Terminal 1: Racecar Remote Launch
+
+```bash
+source devel/setup.bash
+roslaunch racecar teleop.launch
+```
+
+#### Terminal 2: Vicon Bridge
+
+```bash
+source devel/setup.bash
+python3 vicon_bridge.py
+```
+
+#### Terminal 3: Vicon Tracker Code
+
+```bash
+source devel/setup.bash
+rosrun vicon_control/vicon_tracker_pp.py
+```
+
+---
+
+**Note:** Each command runs in a dedicated terminal window.
+
+
+
+## **II. Vision Based PID**
+
+This section is designed as a high-level guide for you to understand the main components and code structure for the **lane detection** code ( using **color thresholding** and a **PID controller** to follow lanes. 
 
 > **Note**: This version of lane detection is more archaic, as it relies on straightforward color thresholding. You are free to keep it simple or adapt it into a more advanced technique (e.g. building on your MP1) if you wish. This code was tested during the night, so you will probably have to modify aspects of it to get the vehicle to move smoothly around the track. Throughout this guide, we will frequently point you to two primary code files of interest that you should start modifying:
 >
@@ -11,7 +89,7 @@ In the sections below, we describe the general idea of how the lane detection pi
 
 ----
 
-## **Model Architecture**
+### **Model Architecture**
 
 This pipeline focuses on using **color thresholding** to isolate lane markings in an image. The resulting binary image is then used to calculate the lateral steering error for controlling the vehicle. The approach can be summarized as follows:
 
@@ -42,12 +120,12 @@ As mentioned, this is an older approach to lane detection. The methods here (esp
 
 ----
 
-# **Lane Detection**
+## **Lane Detection**
 
 Below we outline the functions in **`lane_detection.py`** that perform the core of our vision-based lane detection. You will find these functions fully implemented in the starter code, but reading and understanding how they work is essential for any changes or improvements you might make.
 
 
-## **Color Threshold**
+### **Color Threshold**
 
 The **`color_thresh`** function is responsible for filtering out pixels that match a certain range of **HLS** (Hue, Lightness, Saturation) values. 
 
@@ -90,7 +168,7 @@ In our project, we assume the lane lines are **yellow**, so we provide two HLS r
 These ranges dictate what is considered “yellow.” If your environment or track has different lighting conditions, or a slightly different hue of yellow, you may want to tweak these numbers.
 
 
-## **Pre-Processing of Binary Image**
+### **Pre-Processing of Binary Image**
 
 The **`getBinaryImage`** function further cleans up the binary mask from **`color_thresh`**. Small specks and noise can cause false positives, so we remove them by applying morphological operations such as `remove_small_objects`.
 
@@ -106,7 +184,7 @@ The **`getBinaryImage`** function further cleans up the binary mask from **`colo
 In practice, you may not need to alter this much if it works well with your environment, but understanding how morphological removal or dilation might help is beneficial.
 
 
-## **Perspective Transform**
+### **Perspective Transform**
 
 The **`perspective_transform`** function better estimates lane curvature and vehicle position by transforming our image into a **“bird’s-eye”** view. This makes it easier to measure lateral offsets and run polynomial fits for the PID controller.
 
@@ -138,7 +216,7 @@ The **`perspective_transform`** function better estimates lane curvature and veh
 </div>
 
 
-## **Gradient Thresholding**
+### **Gradient Thresholding**
 
 In this section, we introduce an optional **`gradient_thresh`** function that you could implement in your **`lane_detection.py`** file to detect lane lines based on gradient information using Sobel filters. While not strictly required, using gradient thresholding in combination with color thresholding can sometimes yield better results, especially in scenarios where color alone might not sufficiently isolate lane lines. Note that this function is not implemented and it is up to you code it, but we will provide detailed pseudocode to get you started.
 
@@ -174,7 +252,7 @@ In this section, we introduce an optional **`gradient_thresh`** function that yo
 
 ----
 
-# **PID Controller**
+## **PID Controller**
 
 A **PID (Proportional–Integral–Derivative)** controller is used to convert the lane detection output (steering error) into a meaningful control signal (steering command). The objective is to minimize the lateral error between the center of the car as seen through the perspective transformed camera and the center of the lane.
 
@@ -203,7 +281,7 @@ Essentially, this function:
 3. **Computes** the difference between your car’s “center column” and the lane’s “lookahead column.”  
 4. **Stores** this difference in `self.steering_error`, which the PID controller will use.
 
-### **PID Camera Parameters**
+#### **PID Camera Parameters**
 
 The constants used to set a “lookahead” row and a “center” reference are defined here:
 
@@ -221,7 +299,7 @@ Feel free to play with these values if your lane detection is offset or if you w
 
 ---
 
-## **PID Gains**
+### **PID Gains**
 
 Inside **`vision_lanefollower_pid.py`** (where the PID is integrated with the main loop), the following parameters are crucial in how aggressively or smoothly the car responds:
 
@@ -237,48 +315,42 @@ Tweak these for better performance. If the vehicle oscillates too much, try lowe
 
 ----
 
-# **Running the Code**
+### **Running the Code**
 
-## **Launch Commands**
+#### **Launch Commands**
 
-Open each command in a **separate terminal window**, and ensure to source the workspace by running the four commands in your project directory:
+Open each command in a **separate terminal window**, and ensure to source the workspace by running the commands in your project directory:
 
 ```bash
 cd ~/Project_Root_Directory
 ```
 
-## **Build Workspace**
+#### **Build Workspace (not necessary if WS is placed in nx directory)**
 
 ```bash
 catkin_make
 ```
 
-### Terminal 1: ROS Master
 
-```bash
-source devel/setup.bash
-roscore
-```
-
-### Terminal 2: Racecar Camera Launch
+##### Terminal 1: Racecar Camera Launch
 
 ```bash
 source devel/setup.bash
 roslaunch racecar sensors.launch
 ```
 
-### Terminal 3: Racecar Remote Launch
+##### Terminal 2: Racecar Remote Launch
 
 ```bash
 source devel/setup.bash
 roslaunch racecar teleop.launch
 ```
 
-### Terminal 4: Lane Following PID Control
+##### Terminal 3: Lane Following PID Control
 
 ```bash
 source devel/setup.bash
-python3 vision_lanefollower_pid.py
+rosrun vicon_control vision_lanefollower_pid.py
 ```
 
 ---
@@ -288,7 +360,7 @@ python3 vision_lanefollower_pid.py
 ---
 
 
-# **First Steps**
+## **First Steps**
 
 1. **Get the code running**. Ensure your environment is set up, and that the basic thresholding + perspective transform pipeline works. When the code is running, your car should roughly follow the yellow line on the track.
 
