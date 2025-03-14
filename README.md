@@ -107,11 +107,22 @@ The **`perspective_transform`** function better estimates lane curvature and veh
         # 3. Use cv2.getPerspectiveTransform(...) and cv2.warpPerspective(...)
         return warped_img, M, Minv, src, dst
 
-![image](https://github.com/user-attachments/assets/07c333c2-13e2-45b6-b711-1f80e6125f62)
-Original Image
-
-![image](https://github.com/user-attachments/assets/6aa07e43-627b-4ee1-abc7-aab348073258)
-Birdseye Image
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="https://github.com/user-attachments/assets/07c333c2-13e2-45b6-b711-1f80e6125f62" alt="Original Image" width="300">
+      </td>
+      <td align="center">
+        <img src="https://github.com/user-attachments/assets/6aa07e43-627b-4ee1-abc7-aab348073258" alt="Color Threshold Image" width="300">
+      </td>
+    </tr>
+    <tr>
+      <td align="center">Original Image</td>
+      <td align="center">Color Threshold Image</td>
+    </tr>
+  </table>
+</div>
 
 ----
 
