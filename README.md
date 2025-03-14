@@ -239,8 +239,6 @@ Tweak these for better performance. If the vehicle oscillates too much, try lowe
 
 # **Running the Code**
 
----
-
 ## **Launch Commands**
 
 Open each command in a **separate terminal window**, and ensure to source the workspace by running the four commands in your project directory:
