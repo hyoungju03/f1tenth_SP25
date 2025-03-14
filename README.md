@@ -49,11 +49,21 @@ The **`color_thresh`** function is responsible for filtering out pixels that mat
         # ... code that converts to HLS and applies threshold ...
         return yellow_mask
 
-![image](https://github.com/user-attachments/assets/07c333c2-13e2-45b6-b711-1f80e6125f62)
-Original Image
+<table>
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/07c333c2-13e2-45b6-b711-1f80e6125f62" alt="Original Image" width="300">
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/8ab51937-1e3b-40e3-8aad-5006d54b86b8" alt="Color Threshold Image" width="300">
+    </td>
+  </tr>
+  <tr>
+    <td align="center">Original Image</td>
+    <td align="center">Color Threshold Image</td>
+  </tr>
+</table>
 
-![image](https://github.com/user-attachments/assets/8ab51937-1e3b-40e3-8aad-5006d54b86b8)
-Color Threshold Image
 
 In our project, we assume the lane lines are **yellow**, so we provide two HLS ranges that capture most yellow tones.
 
